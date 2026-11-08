@@ -48,6 +48,19 @@ public static class UnityMcpBridge
             }
         }
 
+        if (File.Exists("Temp/trigger_setup_playground.tmp"))
+        {
+            try
+            {
+                File.Delete("Temp/trigger_setup_playground.tmp");
+                SetupCorePlayground.Execute();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
         if (isRunning) return;
         if (EditorApplication.timeSinceStartup - lastCheckTime < 2.0) return;
         lastCheckTime = EditorApplication.timeSinceStartup;
