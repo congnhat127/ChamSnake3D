@@ -35,6 +35,19 @@ public static class UnityMcpBridge
     private static double lastCheckTime = 0;
     private static void CheckAndEnsureRunning()
     {
+        if (File.Exists("Temp/trigger_refresh.tmp"))
+        {
+            try
+            {
+                File.Delete("Temp/trigger_refresh.tmp");
+                AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
         if (File.Exists("Temp/trigger_setup_chibi.tmp"))
         {
             try

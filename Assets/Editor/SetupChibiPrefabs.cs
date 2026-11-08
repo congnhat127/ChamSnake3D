@@ -105,6 +105,7 @@ public static class SetupChibiPrefabs
         string path = $"{PrefabsDir}/Mother.prefab";
         GameObject root = new GameObject("Mother");
         root.tag = "Player";
+        var motherMat = GetMat("Mat_Mother_Outfit") ?? GetMat("Mat_Mother");
 
         // 1. CharacterController
         var cc = root.AddComponent<CharacterController>();
@@ -139,7 +140,6 @@ public static class SetupChibiPrefabs
             modelInst.transform.localRotation = Quaternion.identity;
             modelInst.transform.localScale = Vector3.one;
 
-            var motherMat = GetMat("Mat_Mother_Outfit") ?? GetMat("Mat_Mother");
             ApplyMaterial(modelInst, motherMat);
         }
 
@@ -178,7 +178,6 @@ public static class SetupChibiPrefabs
         auraGo.SetActive(false);
 
         // 9. Foot Sockets & Procedural Stepping Motor
-        var motherMat = GetMat("Mat_Mother_Outfit") ?? GetMat("Mat_Mother");
         GameObject sFootL = AttachFoot(root.transform, "Socket_Foot_L", new Vector3(-0.16f, 0.08f, 0.04f), motherMat);
         GameObject sFootR = AttachFoot(root.transform, "Socket_Foot_R", new Vector3(0.16f, 0.08f, 0.04f), motherMat);
 
@@ -302,6 +301,7 @@ public static class SetupChibiPrefabs
         string path = $"{PrefabsDir}/Hunter.prefab";
         GameObject root = new GameObject("Hunter");
         root.tag = "Hunter";
+        var robeMat = GetMat("Mat_Hunter_Robe") ?? GetMat("Mat_Hunter");
 
         var cc = root.AddComponent<CharacterController>();
         cc.center = new Vector3(0f, 0.85f, 0f);
@@ -334,7 +334,6 @@ public static class SetupChibiPrefabs
             modelInst.transform.localRotation = Quaternion.identity;
             modelInst.transform.localScale = Vector3.one;
 
-            var robeMat = GetMat("Mat_Hunter_Robe") ?? GetMat("Mat_Hunter");
             ApplyMaterial(modelInst, robeMat);
         }
 
@@ -386,7 +385,6 @@ public static class SetupChibiPrefabs
         swipeVfx.SetActive(false);
 
         // 7. Foot Sockets & Procedural Stepping Motor
-        var robeMat = GetMat("Mat_Hunter_Robe") ?? GetMat("Mat_Hunter");
         GameObject sFootL = AttachFoot(root.transform, "Socket_Foot_L", new Vector3(-0.16f, 0.08f, 0.04f), robeMat);
         GameObject sFootR = AttachFoot(root.transform, "Socket_Foot_R", new Vector3(0.16f, 0.08f, 0.04f), robeMat);
 
