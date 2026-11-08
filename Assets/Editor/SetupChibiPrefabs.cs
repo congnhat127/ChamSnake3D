@@ -17,7 +17,7 @@ public static class SetupChibiPrefabs
     [MenuItem("Tools/Rong Ran/Setup Chibi Rigs & Sockets (Spec 001)")]
     public static void Execute()
     {
-        Debug.Log("[Speckit 001] Building Prefabs with REAL 3D Chibi Models (No Primitives)...");
+        Debug.Log("[Speckit 001] Building Prefabs with 3D Models, Heads, and Expressive Faces...");
 
         EnsureDir(PrefabsDir);
 
@@ -30,7 +30,7 @@ public static class SetupChibiPrefabs
         UpdateShowcaseScene();
 
         AssetDatabase.SaveAssets();
-        Debug.Log("[Speckit 001] Complete! All characters updated with smooth 3D Chibi models!");
+        Debug.Log("[Speckit 001] Complete! Characters now have expressive faces, eyes, and traditional accessories!");
     }
 
     private static void EnsureDir(string path)
@@ -63,6 +63,24 @@ public static class SetupChibiPrefabs
         }
     }
 
+    private static void AttachFace(Transform headTransform, Material faceMat)
+    {
+        GameObject faceCapAsset = LoadModel("Face_Cap.obj");
+        if (faceCapAsset != null)
+        {
+            GameObject faceInst = (GameObject)PrefabUtility.InstantiatePrefab(faceCapAsset, headTransform);
+            faceInst.name = "Face_Expressive";
+            faceInst.transform.localPosition = Vector3.zero;
+            faceInst.transform.localRotation = Quaternion.identity;
+            faceInst.transform.localScale = new Vector3(1.008f, 1.008f, 1.008f);
+            ApplyMaterial(faceInst, faceMat);
+        }
+        else
+        {
+            Debug.LogWarning("[Speckit 001] Face_Cap.obj model not found!");
+        }
+    }
+
     private static void BuildMotherPrefab()
     {
         string path = $"{PrefabsDir}/Mother.prefab";
@@ -79,10 +97,10 @@ public static class SetupChibiPrefabs
         // 2. MotherController
         var mc = root.AddComponent<MotherController>();
 
-        // 3. Sockets (Hierarchical attachment points)
+        // 3. Sockets
         GameObject sHead = new GameObject("Socket_Head");
         sHead.transform.SetParent(root.transform, false);
-        sHead.transform.localPosition = new Vector3(0f, 1.45f, 0.02f);
+        sHead.transform.localPosition = new Vector3(0f, 1.35f, 0.02f);
 
         GameObject sHandL = new GameObject("Socket_Hand_L");
         sHandL.transform.SetParent(root.transform, false);
@@ -92,12 +110,12 @@ public static class SetupChibiPrefabs
         sHandR.transform.SetParent(root.transform, false);
         sHandR.transform.localPosition = new Vector3(1.40f, 0.88f, 0.12f);
 
-        // 4. Attach REAL 3D Model: Chibi_Mother.obj (Natural curved wing arms)
+        // 4. Attach Body Model: Chibi_Mother.obj (Áo bà ba & curved embracing arms)
         GameObject motherModelAsset = LoadModel("Chibi_Mother.obj");
         if (motherModelAsset != null)
         {
             GameObject modelInst = (GameObject)PrefabUtility.InstantiatePrefab(motherModelAsset, root.transform);
-            modelInst.name = "Model_Chibi_Mother";
+            modelInst.name = "Model_Body";
             modelInst.transform.localPosition = Vector3.zero;
             modelInst.transform.localRotation = Quaternion.identity;
             modelInst.transform.localScale = Vector3.one;
@@ -106,13 +124,27 @@ public static class SetupChibiPrefabs
             ApplyMaterial(modelInst, motherMat);
         }
 
-        // 5. Attach REAL 3D Accessory: NonLa.obj
+        // 5. Head (Skin tone sphere on Socket_Head)
+        GameObject headGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        headGo.name = "Head";
+        headGo.transform.SetParent(sHead.transform, false);
+        headGo.transform.localPosition = Vector3.zero;
+        headGo.transform.localScale = new Vector3(0.68f, 0.68f, 0.64f);
+        UnityEngine.Object.DestroyImmediate(headGo.GetComponent<Collider>());
+        var skinMat = GetMat("Mat_Skin");
+        if (skinMat != null) headGo.GetComponent<Renderer>().sharedMaterial = skinMat;
+
+        // 6. Face Decal with Eyes & Rosy Cheeks
+        var faceMat = GetMat("Mat_Mother_Face");
+        AttachFace(headGo.transform, faceMat);
+
+        // 7. Nón Lá on head
         GameObject nonLaAsset = LoadModel("NonLa.obj");
         if (nonLaAsset != null)
         {
             GameObject nonLaInst = (GameObject)PrefabUtility.InstantiatePrefab(nonLaAsset, sHead.transform);
             nonLaInst.name = "NonLa";
-            nonLaInst.transform.localPosition = new Vector3(0f, 0.18f, 0f);
+            nonLaInst.transform.localPosition = new Vector3(0f, 0.22f, 0f);
             nonLaInst.transform.localRotation = Quaternion.Euler(6f, 0f, 0f);
             nonLaInst.transform.localScale = Vector3.one;
 
@@ -120,8 +152,7 @@ public static class SetupChibiPrefabs
             ApplyMaterial(nonLaInst, nonLaMat);
         }
 
-        // 6. Defense Aura (Visual cue when lock-facing)
-        GameObject aura = LoadModel("NonLa.obj"); // fallback or flat circle
+        // 8. Defense Aura
         GameObject auraGo = new GameObject("LockAuraVisual");
         auraGo.transform.SetParent(root.transform, false);
         auraGo.transform.localPosition = new Vector3(0f, 0.02f, 0f);
@@ -137,7 +168,7 @@ public static class SetupChibiPrefabs
 
         PrefabUtility.SaveAsPrefabAsset(root, path);
         UnityEngine.Object.DestroyImmediate(root);
-        Debug.Log($"[Speckit 001] Saved Mother prefab with 3D curved arms: {path}");
+        Debug.Log($"[Speckit 001] Saved Mother prefab with expressive face: {path}");
     }
 
     private static void BuildChildPrefab()
@@ -156,19 +187,19 @@ public static class SetupChibiPrefabs
 
         GameObject sHead = new GameObject("Socket_Head");
         sHead.transform.SetParent(root.transform, false);
-        sHead.transform.localPosition = new Vector3(0f, 0.85f, 0.02f);
+        sHead.transform.localPosition = new Vector3(0f, 0.82f, 0.02f);
 
         GameObject sCrown = new GameObject("Socket_Crown");
         sCrown.transform.SetParent(sHead.transform, false);
-        sCrown.transform.localPosition = new Vector3(0f, 0.30f, 0f);
+        sCrown.transform.localPosition = new Vector3(0f, 0.32f, 0f);
 
-        // 1. Attach REAL 3D Model: Chibi_Child.obj
+        // 1. Attach Body Model: Chibi_Child.obj
         GameObject childModelAsset = LoadModel("Chibi_Child.obj");
         Renderer bodyRend = null;
         if (childModelAsset != null)
         {
             GameObject modelInst = (GameObject)PrefabUtility.InstantiatePrefab(childModelAsset, root.transform);
-            modelInst.name = "Model_Chibi_Child";
+            modelInst.name = "Model_Body";
             modelInst.transform.localPosition = Vector3.zero;
             modelInst.transform.localRotation = Quaternion.identity;
             modelInst.transform.localScale = Vector3.one;
@@ -178,7 +209,21 @@ public static class SetupChibiPrefabs
             bodyRend = modelInst.GetComponentInChildren<Renderer>();
         }
 
-        // 2. Attach REAL 3D Accessory: Crown_ConUt.obj
+        // 2. Head with Skin tone
+        GameObject headGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        headGo.name = "Head";
+        headGo.transform.SetParent(sHead.transform, false);
+        headGo.transform.localPosition = Vector3.zero;
+        headGo.transform.localScale = new Vector3(0.60f, 0.60f, 0.56f);
+        UnityEngine.Object.DestroyImmediate(headGo.GetComponent<Collider>());
+        var skinMat = GetMat("Mat_Skin");
+        if (skinMat != null) headGo.GetComponent<Renderer>().sharedMaterial = skinMat;
+
+        // 3. Face Decal with Big Anime Eyes & Rosy Cheeks
+        var childFaceMat = GetMat("Mat_Child_Face");
+        AttachFace(headGo.transform, childFaceMat);
+
+        // 4. Crown on Socket_Crown (for Con Út)
         GameObject crownAsset = LoadModel("Crown_ConUt.obj");
         GameObject crownInst = null;
         if (crownAsset != null)
@@ -191,7 +236,7 @@ public static class SetupChibiPrefabs
 
             var crownMat = GetMat("Mat_Crown");
             ApplyMaterial(crownInst, crownMat);
-            crownInst.SetActive(false); // only enabled when isConUt
+            crownInst.SetActive(false);
         }
 
         // Inject References
@@ -204,7 +249,7 @@ public static class SetupChibiPrefabs
 
         PrefabUtility.SaveAsPrefabAsset(root, path);
         UnityEngine.Object.DestroyImmediate(root);
-        Debug.Log($"[Speckit 001] Saved Child prefab: {path}");
+        Debug.Log($"[Speckit 001] Saved Child prefab with expressive face: {path}");
     }
 
     private static void BuildHunterPrefab()
@@ -224,7 +269,7 @@ public static class SetupChibiPrefabs
         // Sockets
         GameObject sHead = new GameObject("Socket_Head");
         sHead.transform.SetParent(root.transform, false);
-        sHead.transform.localPosition = new Vector3(0f, 1.45f, 0.04f);
+        sHead.transform.localPosition = new Vector3(0f, 1.34f, 0.04f);
 
         GameObject sHandR = new GameObject("Socket_Hand_R");
         sHandR.transform.SetParent(root.transform, false);
@@ -232,14 +277,14 @@ public static class SetupChibiPrefabs
 
         GameObject sPouch = new GameObject("Socket_Pouch");
         sPouch.transform.SetParent(root.transform, false);
-        sPouch.transform.localPosition = Vector3.zero; // Origin of MedicinePouch.obj wraps around body
+        sPouch.transform.localPosition = Vector3.zero;
 
-        // 1. Attach REAL 3D Model: Chibi_Hunter.obj
+        // 1. Attach Body Model: Chibi_Hunter.obj (Áo dài tím)
         GameObject hunterModelAsset = LoadModel("Chibi_Hunter.obj");
         if (hunterModelAsset != null)
         {
             GameObject modelInst = (GameObject)PrefabUtility.InstantiatePrefab(hunterModelAsset, root.transform);
-            modelInst.name = "Model_Chibi_Hunter";
+            modelInst.name = "Model_Body";
             modelInst.transform.localPosition = Vector3.zero;
             modelInst.transform.localRotation = Quaternion.identity;
             modelInst.transform.localScale = Vector3.one;
@@ -248,13 +293,27 @@ public static class SetupChibiPrefabs
             ApplyMaterial(modelInst, robeMat);
         }
 
-        // 2. Attach REAL 3D Accessory: NonLa.obj
+        // 2. Head with Skin tone
+        GameObject headGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        headGo.name = "Head";
+        headGo.transform.SetParent(sHead.transform, false);
+        headGo.transform.localPosition = Vector3.zero;
+        headGo.transform.localScale = new Vector3(0.64f, 0.64f, 0.60f);
+        UnityEngine.Object.DestroyImmediate(headGo.GetComponent<Collider>());
+        var skinMat = GetMat("Mat_Skin");
+        if (skinMat != null) headGo.GetComponent<Renderer>().sharedMaterial = skinMat;
+
+        // 3. Face Decal with Crafty Slanted Eyes
+        var hunterFaceMat = GetMat("Mat_Hunter_Face");
+        AttachFace(headGo.transform, hunterFaceMat);
+
+        // 4. Nón Lá on Head
         GameObject nonLaAsset = LoadModel("NonLa.obj");
         if (nonLaAsset != null)
         {
             GameObject nonLaInst = (GameObject)PrefabUtility.InstantiatePrefab(nonLaAsset, sHead.transform);
             nonLaInst.name = "NonLa";
-            nonLaInst.transform.localPosition = new Vector3(0f, 0.18f, 0f);
+            nonLaInst.transform.localPosition = new Vector3(0f, 0.22f, 0f);
             nonLaInst.transform.localRotation = Quaternion.Euler(10f, 0f, 0f);
             nonLaInst.transform.localScale = Vector3.one;
 
@@ -262,7 +321,7 @@ public static class SetupChibiPrefabs
             ApplyMaterial(nonLaInst, nonLaMat);
         }
 
-        // 3. Attach REAL 3D Accessory: MedicinePouch.obj (Đeo chéo qua vai)
+        // 5. Medicine Pouch slung around torso
         GameObject pouchAsset = LoadModel("MedicinePouch.obj");
         if (pouchAsset != null)
         {
@@ -276,7 +335,7 @@ public static class SetupChibiPrefabs
             ApplyMaterial(pouchInst, pouchMat);
         }
 
-        // 4. Grab VFX
+        // 6. Swipe VFX
         GameObject swipeVfx = new GameObject("SwipeVFX");
         swipeVfx.transform.SetParent(sHandR.transform, false);
         swipeVfx.SetActive(false);
@@ -290,7 +349,7 @@ public static class SetupChibiPrefabs
 
         PrefabUtility.SaveAsPrefabAsset(root, path);
         UnityEngine.Object.DestroyImmediate(root);
-        Debug.Log($"[Speckit 001] Saved Hunter prefab with 3D model & medicine pouch: {path}");
+        Debug.Log($"[Speckit 001] Saved Hunter prefab with expressive face: {path}");
     }
 
     private static void UpdateShowcaseScene()
@@ -341,7 +400,9 @@ public static class SetupChibiPrefabs
             {
                 f3.Initialize(2, true, null);
                 var conUtMat = GetMat("Mat_ConUt");
-                ApplyMaterial(c3, conUtMat);
+                // Apply conUtMat to body model
+                var body = c3.transform.Find("Model_Body");
+                if (body != null && conUtMat != null) ApplyMaterial(body.gameObject, conUtMat);
             }
         }
 
@@ -354,7 +415,7 @@ public static class SetupChibiPrefabs
         }
 
         EditorSceneManager.SaveScene(scene);
-        Debug.Log($"[Speckit 001] Updated Showcase scene with 3D OBJ models: {scenePath}");
+        Debug.Log($"[Speckit 001] Updated Showcase scene with full faces and accessories: {scenePath}");
     }
 }
 #endif
