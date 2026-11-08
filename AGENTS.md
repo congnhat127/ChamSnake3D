@@ -50,3 +50,4 @@ Never tell the user "ready to test" without programmatic verification:
 ## 6. Performance & Clean Unity 6 Code
 - Code must reside inside namespace `RongRanChamCham` and assembly `RongRanChamCham.Runtime.asmdef`.
 - **Zero GC Allocation in hot loops (`Update`, `FixedUpdate`):** No LINQ, no allocating new arrays/lists per frame. Target 60 FPS on mobile.
+
