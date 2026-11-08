@@ -63,6 +63,25 @@ public static class SetupChibiPrefabs
         }
     }
 
+    private static GameObject AttachFoot(Transform parent, string socketName, Vector3 pos, Material mat)
+    {
+        GameObject socket = new GameObject(socketName);
+        socket.transform.SetParent(parent, false);
+        socket.transform.localPosition = pos;
+
+        GameObject footAsset = LoadModel("Chibi_Foot.obj");
+        if (footAsset != null)
+        {
+            GameObject footInst = (GameObject)PrefabUtility.InstantiatePrefab(footAsset, socket.transform);
+            footInst.name = "Foot_Visual";
+            footInst.transform.localPosition = Vector3.zero;
+            footInst.transform.localRotation = Quaternion.identity;
+            footInst.transform.localScale = Vector3.one;
+            ApplyMaterial(footInst, mat);
+        }
+        return socket;
+    }
+
     private static void AttachFace(Transform headTransform, Material faceMat)
     {
         GameObject faceCapAsset = LoadModel("Face_Cap.obj");
@@ -158,6 +177,19 @@ public static class SetupChibiPrefabs
         auraGo.transform.localPosition = new Vector3(0f, 0.02f, 0f);
         auraGo.SetActive(false);
 
+        // 9. Foot Sockets & Procedural Stepping Motor
+        var motherMat = GetMat("Mat_Mother_Outfit") ?? GetMat("Mat_Mother");
+        GameObject sFootL = AttachFoot(root.transform, "Socket_Foot_L", new Vector3(-0.16f, 0.08f, 0.04f), motherMat);
+        GameObject sFootR = AttachFoot(root.transform, "Socket_Foot_R", new Vector3(0.16f, 0.08f, 0.04f), motherMat);
+
+        var procAnim = root.AddComponent<ChibiProceduralAnimator>();
+        var animSO = new SerializedObject(procAnim);
+        animSO.FindProperty("socketFootL").objectReferenceValue = sFootL.transform;
+        animSO.FindProperty("socketFootR").objectReferenceValue = sFootR.transform;
+        var bodyTrans = root.transform.Find("Model_Body");
+        if (bodyTrans != null) animSO.FindProperty("bodyVisual").objectReferenceValue = bodyTrans;
+        animSO.ApplyModifiedPropertiesWithoutUndo();
+
         // Inject References
         var serializedObj = new SerializedObject(mc);
         serializedObj.FindProperty("socketHead").objectReferenceValue = sHead.transform;
@@ -238,6 +270,19 @@ public static class SetupChibiPrefabs
             ApplyMaterial(crownInst, crownMat);
             crownInst.SetActive(false);
         }
+
+        // 5. Foot Sockets & Procedural Stepping Motor
+        var childFootMat = GetMat("Mat_Child");
+        GameObject sFootL = AttachFoot(root.transform, "Socket_Foot_L", new Vector3(-0.12f, 0.06f, 0.03f), childFootMat);
+        GameObject sFootR = AttachFoot(root.transform, "Socket_Foot_R", new Vector3(0.12f, 0.06f, 0.03f), childFootMat);
+
+        var procAnim = root.AddComponent<ChibiProceduralAnimator>();
+        var animSO = new SerializedObject(procAnim);
+        animSO.FindProperty("socketFootL").objectReferenceValue = sFootL.transform;
+        animSO.FindProperty("socketFootR").objectReferenceValue = sFootR.transform;
+        var childBody = root.transform.Find("Model_Body");
+        if (childBody != null) animSO.FindProperty("bodyVisual").objectReferenceValue = childBody;
+        animSO.ApplyModifiedPropertiesWithoutUndo();
 
         // Inject References
         var serializedObj = new SerializedObject(cf);
@@ -339,6 +384,19 @@ public static class SetupChibiPrefabs
         GameObject swipeVfx = new GameObject("SwipeVFX");
         swipeVfx.transform.SetParent(sHandR.transform, false);
         swipeVfx.SetActive(false);
+
+        // 7. Foot Sockets & Procedural Stepping Motor
+        var robeMat = GetMat("Mat_Hunter_Robe") ?? GetMat("Mat_Hunter");
+        GameObject sFootL = AttachFoot(root.transform, "Socket_Foot_L", new Vector3(-0.16f, 0.08f, 0.04f), robeMat);
+        GameObject sFootR = AttachFoot(root.transform, "Socket_Foot_R", new Vector3(0.16f, 0.08f, 0.04f), robeMat);
+
+        var procAnim = root.AddComponent<ChibiProceduralAnimator>();
+        var animSO = new SerializedObject(procAnim);
+        animSO.FindProperty("socketFootL").objectReferenceValue = sFootL.transform;
+        animSO.FindProperty("socketFootR").objectReferenceValue = sFootR.transform;
+        var hunterBody = root.transform.Find("Model_Body");
+        if (hunterBody != null) animSO.FindProperty("bodyVisual").objectReferenceValue = hunterBody;
+        animSO.ApplyModifiedPropertiesWithoutUndo();
 
         // Inject References
         var serializedObj = new SerializedObject(ai);

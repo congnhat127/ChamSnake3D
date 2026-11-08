@@ -18,7 +18,10 @@ public static class SetupCorePlayground
     [MenuItem("Tools/Rong Ran/Setup Core Playground (Spec 001-core)")]
     public static void Execute()
     {
-        Debug.Log("[Speckit 001-core] Setting up Core Playground Physics Sandbox...");
+        Debug.Log("[Speckit 001-core] Setting up Core Playground Physics Sandbox (Vietnam & Korea Fusion)...");
+
+        // 0. Ensure Chibi Prefabs are freshly baked with feet and expressive faces
+        SetupChibiPrefabs.Execute();
 
         EnsureDir(SettingsDir);
         var config = EnsureGameBalanceConfig();
@@ -38,7 +41,7 @@ public static class SetupCorePlayground
             }
         }
 
-        // 1. Arena Environment
+        // 1. Arena Environment (Vietnam & Korea Cultural Fusion)
         var arenaPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabsDir}/Environment/Arena.prefab");
         if (arenaPrefab != null)
         {
@@ -46,6 +49,51 @@ public static class SetupCorePlayground
             arenaInst.name = "Arena";
             arenaInst.transform.position = Vector3.zero;
             arenaInst.transform.rotation = Quaternion.identity;
+
+            // Apply Vietnam-Korea Cultural Fusion Ground Material
+            var groundTrans = arenaInst.transform.Find("Ground");
+            var vkMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/_Game/Materials/Environment/Mat_Arena_Vietnam_Korea.mat");
+            if (groundTrans != null && vkMat != null)
+            {
+                var rend = groundTrans.GetComponent<Renderer>();
+                if (rend != null) rend.sharedMaterial = vkMat;
+            }
+
+            // Decorate Posts with Alternating Hoi An & Cheongsachorong Lanterns
+            var fence = arenaInst.transform.Find("Boundary_Fence");
+            var hoianModel = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Models/Environment/Lantern_HoiAn.obj");
+            var koreaModel = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Models/Environment/Lantern_Cheongsachorong.obj");
+            var hoianMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/_Game/Materials/Environment/Mat_Lantern_Vietnam.mat");
+            var koreaMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/_Game/Materials/Environment/Mat_Lantern_Korea.mat");
+
+            if (fence != null)
+            {
+                for (int i = 0; i < 24; i++)
+                {
+                    var post = fence.Find($"Post_{i}");
+                    if (post != null)
+                    {
+                        bool isHoiAn = (i % 2 == 0);
+                        var lanternAsset = isHoiAn ? hoianModel : koreaModel;
+                        var lanternMat = isHoiAn ? hoianMat : koreaMat;
+
+                        if (lanternAsset != null)
+                        {
+                            var lanternInst = (GameObject)PrefabUtility.InstantiatePrefab(lanternAsset, post);
+                            lanternInst.name = isHoiAn ? "Lantern_HoiAn_VN" : "Lantern_Cheongsachorong_KR";
+                            Vector3 dirToCenter = (Vector3.zero - post.position).normalized;
+                            lanternInst.transform.localPosition = new Vector3(0f, 2.2f, 0f) + (post.InverseTransformDirection(dirToCenter) * 0.45f);
+                            lanternInst.transform.localRotation = Quaternion.identity;
+                            lanternInst.transform.localScale = Vector3.one * 1.35f;
+
+                            foreach (var r in lanternInst.GetComponentsInChildren<Renderer>(true))
+                            {
+                                r.sharedMaterial = lanternMat;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // 2. Managers (Touch Input & OnGUI Virtual Controls)

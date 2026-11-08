@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54127aeede27404499a9ecca6a11aa89, type: 3}
+  m_Name: GameBalanceConfig
+  m_EditorClassIdentifier: RongRanChamCham.Runtime::RongRanChamCham.GameBalanceConfig
+  arenaRadius: 16
+  motherNormalSpeed: 6.5
+  motherStrafeSpeed: 5
+  motherTurnSpeed: 12
+  hunterNormalSpeed: 6.5
+  hunterFlankSpeed: 6.5
+  hunterGrabRange: 1.6
+  hunterGrabWindup: 0.25
+  hunterGrabCooldown: 0.5
+  childCount: 3
+  chainLinkDistance: 0.68
+  chainFollowSpeed: 18
+  chainMaxStretch: 1.2
+  centrifugalWhipMultiplier: 1.15
+  conUtMaxHealth: 3
+  chaseRoundDuration: 45
+  buffDuration: 7
