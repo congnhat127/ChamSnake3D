@@ -18,16 +18,8 @@ public static class CharacterAssetPipeline
     private const string AnimDir = "Assets/_Game/Animations/Characters";
     private const string ScenesDir = "Assets/_Game/Scenes";
 
-    [InitializeOnLoadMethod]
-    private static void AutoRunOnce()
-    {
-        EditorApplication.delayCall += () =>
-        {
-            if (SessionState.GetBool("Phase1_Done_V4", false)) return;
-            SessionState.SetBool("Phase1_Done_V4", true);
-            BuildPhase1();
-        };
-    }
+    // AutoRunOnce removed: We do not automatically inject placeholder models.
+    // Use manual menu items or Speckit workflow.
 
     [MenuItem("Tools/Rong Ran/Phase 1 - Build Characters & Showcase")]
     public static void BuildPhase1()
