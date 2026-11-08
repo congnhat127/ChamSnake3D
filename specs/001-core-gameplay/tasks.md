@@ -27,14 +27,15 @@
 
 ## Phase 3: Dựng Scene Sandbox Thử nghiệm (Playground Scene)
 - [x] **Task 3.1**: Dọn dẹp sạch sẽ các script tự sinh cũ (`GameplaySceneBuilder.cs`, `AutoRebuilder.cs`).
-- [x] **Task 3.2**: Thiết lập `PrefabGenerator.cs` với `[InitializeOnLoadMethod]` tự động dựng và mở Scene `Assets/_Game/Scenes/Playground_CorePhysics.unity` gồm Sân đấu tròn, Ánh sáng URP, Camera Isometric, và các Prefab chuẩn.
+- [x] **Task 3.2**: Thiết lập `SetupCorePlayground.cs` với Menu `Tools -> Rong Ran -> Setup Core Playground (Spec 001-core)` và auto-trigger nạp Scene `Playground_CorePhysics.unity` gồm Sân đấu tròn 32m Arena, Ánh sáng URP ấm, Camera Isometric bám đuổi mượt, Đầu Đàn, 3 Trẻ rồng rắn và Thầy Thuốc AI.
+- [x] **Task 3.3**: Thiết lập file cấu hình thông số cân bằng tập trung `GameBalanceConfig.asset` tại `Assets/_Game/Settings/`.
 
 ---
 
 ## Phase 4: Kiểm thử Độc lập & Tự Nghiệm Thu (Self-Verification)
-- [ ] **Task 4.1 (Verify Movement & Lock-Facing):** Kiểm tra Mẹ di chuyển 360°, giữ nút Khóa Hướng và đi lùi thành công.
-- [ ] **Task 4.2 (Verify Chain 3 Children):** Kiểm tra 3 con uốn lượn sau lưng Mẹ, Con Út ở cuối hàng.
-- [ ] **Task 4.3 (Verify Hunter Flank & Grab):** Kiểm tra Thợ Săn chạy cùng tốc độ, lách sườn quanh Mẹ và tung đòn vồ trúng Út.
+- [ ] **Task 4.1 (Verify Movement & Lock-Facing):** Kiểm tra Đầu Đàn di chuyển 360°, giữ phím `Space` hoặc chạm nút ảo trên màn hình để đi lùi/strafe mà không quay lưng lại Thầy Thuốc.
+- [ ] **Task 4.2 (Verify Chain 3 Children):** Kiểm tra 3 trẻ nối đuôi nhau bám sát lưng Đầu Đàn, uốn lượn mềm mại, Con Út ở cuối hàng đội vương miện.
+- [ ] **Task 4.3 (Verify Hunter Flank & Grab):** Kiểm tra Thầy Thuốc chạy cùng tốc độ (6.5 m/s), lách sườn quanh Đầu Đàn và chỉ vồ bắt khi áp sát < 1.6m.
 - [ ] **Task 4.4 (Zero Console Errors):** Kiểm tra log Unity, bảo đảm 0 lỗi compiler, 0 lỗi runtime.
 
 ---
