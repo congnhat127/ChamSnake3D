@@ -1,25 +1,27 @@
 using System;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace RongRanChamCham
 {
     [RequireComponent(typeof(CharacterController))]
     public class HunterAI : MonoBehaviour
     {
+        [Header("Configuration")]
+        [SerializeField] private GameBalanceConfig balanceConfig;
+
         [Header("Targets")]
         [SerializeField] private Transform motherTransform;
         [SerializeField] private ChildFollower conUtTarget;
 
-        [Header("Movement & Tuning (Equal to Mother)")]
-        [SerializeField] private float moveSpeed = GameConstants.HunterNormalSpeed;
-        [SerializeField] private float grabRange = GameConstants.HunterGrabRange;
-        [SerializeField] private float grabCooldown = GameConstants.HunterGrabCooldown;
-
-        [Header("Visual Feedback")]
-        [SerializeField] private Transform rightHand;
+        [Header("Rig & Sockets")]
+        [SerializeField] private Transform socketHead;
+        [SerializeField] private Transform socketGrabHand;
         [SerializeField] private GameObject swipeVfxVisual;
 
         private CharacterController controller;
+        private NavMeshAgent navMeshAgent;
+
         private Vector3 externalPushVelocity = Vector3.zero;
         private float stunTimer = 0f;
         private float nextGrabAvailableTime = 0f;
@@ -30,16 +32,32 @@ namespace RongRanChamCham
         public event Action OnCaughtConUt;
         public bool IsGrabbing => isPerformingGrab;
 
+        private float MoveSpeed => balanceConfig != null ? balanceConfig.hunterNormalSpeed : GameConstants.HunterNormalSpeed;
+        private float GrabRange => balanceConfig != null ? balanceConfig.hunterGrabRange : GameConstants.HunterGrabRange;
+        private float GrabWindup => balanceConfig != null ? balanceConfig.hunterGrabWindup : GameConstants.HunterGrabWindup;
+        private float GrabCooldown => balanceConfig != null ? balanceConfig.hunterGrabCooldown : GameConstants.HunterGrabCooldown;
+
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
-            if (moveSpeed <= 0.5f) moveSpeed = GameConstants.HunterNormalSpeed;
-            if (grabRange <= 0.5f) grabRange = GameConstants.HunterGrabRange;
+            navMeshAgent = GetComponent<NavMeshAgent>();
+            EnsureSockets();
+        }
+
+        private void EnsureSockets()
+        {
+            if (socketHead == null) socketHead = transform.Find("Socket_Head");
+            if (socketGrabHand == null) socketGrabHand = transform.Find("Socket_Hand_R");
         }
 
         private void Start()
         {
             EnsureTargets();
+            if (navMeshAgent != null)
+            {
+                navMeshAgent.speed = MoveSpeed;
+                navMeshAgent.stoppingDistance = GrabRange * 0.75f;
+            }
         }
 
         public void SetTargets(Transform mother, ChildFollower conUt)
@@ -58,182 +76,106 @@ namespace RongRanChamCham
 
             if (conUtTarget == null)
             {
-                var snake = UnityEngine.Object.FindAnyObjectByType<SnakeChainIK>();
-                if (snake != null && snake.ConUt != null)
+                var snakeChain = UnityEngine.Object.FindAnyObjectByType<SnakeChainIK>();
+                if (snakeChain != null && snakeChain.ConUt != null)
                 {
-                    conUtTarget = snake.ConUt;
-                }
-                else
-                {
-                    var allChildren = UnityEngine.Object.FindObjectsByType<ChildFollower>(FindObjectsInactive.Exclude);
-                    foreach (var c in allChildren)
-                    {
-                        if (c.IsConUt) { conUtTarget = c; break; }
-                    }
+                    conUtTarget = snakeChain.ConUt;
                 }
             }
-        }
-
-        public void GetShovedByMother(Vector3 pushDir, float force)
-        {
-            externalPushVelocity = pushDir.normalized * force;
-            stunTimer = 0.45f;
-            isPerformingGrab = false;
         }
 
         private void Update()
         {
             EnsureTargets();
-            if (conUtTarget == null) return;
 
-            // Decay external shove force
-            if (externalPushVelocity.sqrMagnitude > 0.05f)
-            {
-                controller.Move(externalPushVelocity * Time.deltaTime);
-                externalPushVelocity = Vector3.Lerp(externalPushVelocity, Vector3.zero, Time.deltaTime * 8.0f);
-            }
-
-            // Hard boundary clamp & ground lock
-            ClampWithinArena();
-
-            // Stunned cooldown
+            // 1. Handle Stun / Windup Cooldowns
             if (stunTimer > 0f)
             {
                 stunTimer -= Time.deltaTime;
+                ApplyExternalPush();
                 return;
             }
 
-            // Grab Action State
             if (isPerformingGrab)
             {
                 HandleGrabExecution();
                 return;
             }
 
-            // AI Navigation Loop
-            HandleNavigation();
-        }
+            if (conUtTarget == null) return;
 
-        private void HandleNavigation()
-        {
-            Vector3 myPos = transform.position;
-            myPos.y = 0f;
+            // 2. Navigation & Steering
+            Vector3 targetPos = conUtTarget.transform.position;
+            float distToConUt = Vector3.Distance(transform.position, targetPos);
 
-            Vector3 conUtPos = conUtTarget.transform.position;
-            conUtPos.y = 0f;
-
-            Vector3 toConUt = conUtPos - myPos;
-            float distToConUt = toConUt.magnitude;
-
-            // Check if within grab range
-            if (distToConUt <= grabRange && Time.time >= nextGrabAvailableTime)
+            // 3. Trigger Grab Action if in Range & Cooldown elapsed
+            if (distToConUt <= GrabRange && Time.time >= nextGrabAvailableTime)
             {
                 StartGrabAction();
                 return;
             }
 
-            // Check if Mother is blocking the straight path
-            Vector3 desiredDir = toConUt.normalized;
-
-            if (motherTransform != null)
+            // 4. Movement Execution
+            if (navMeshAgent != null && navMeshAgent.isActiveAndEnabled && navMeshAgent.isOnNavMesh)
             {
-                Vector3 motherPos = motherTransform.position;
-                motherPos.y = 0f;
-                Vector3 toMother = motherPos - myPos;
-                float distToMother = toMother.magnitude;
-
-                if (distToMother < distToConUt && distToMother > 0.1f)
-                {
-                    // Projection onto direct path
-                    float proj = Vector3.Dot(toMother, toConUt.normalized);
-                    if (proj > 0 && proj < distToConUt)
-                    {
-                        Vector3 closestPoint = myPos + toConUt.normalized * proj;
-                        float perpDist = (motherPos - closestPoint).magnitude;
-
-                        // Within Mother's blocking zone (< 2.6m)
-                        if (perpDist < 2.6f)
-                        {
-                            // Steer tangentially around Mother towards Con Út's open side
-                            Vector3 tangent = Vector3.Cross(Vector3.up, toMother).normalized;
-                            float sideDot = Vector3.Dot(tangent, toConUt);
-                            Vector3 flankSide = sideDot >= 0 ? tangent : -tangent;
-                            desiredDir = (flankSide * 1.3f + toConUt.normalized * 0.7f).normalized;
-                        }
-                    }
-                }
-
-                // If too close to Mother's body (< 1.6m), repel
-                if (distToMother < 1.6f)
-                {
-                    Vector3 repel = (myPos - motherPos).normalized;
-                    desiredDir = (desiredDir + repel * 1.5f).normalized;
-                }
-            }
-
-            // Arena boundary soft repulsion
-            float distFromCenter = myPos.magnitude;
-            if (distFromCenter > GameConstants.ArenaRadius - 2.0f)
-            {
-                Vector3 toCenter = -myPos.normalized;
-                desiredDir = (desiredDir + toCenter * 1.2f).normalized;
-            }
-
-            // Move at fair speed (equal to Mother)
-            if (controller.isGrounded)
-            {
-                verticalVelocity = -4.0f;
+                navMeshAgent.SetDestination(targetPos);
             }
             else
             {
-                verticalVelocity += Physics.gravity.y * Time.deltaTime * 2.0f;
+                ManualSteering(targetPos);
             }
 
-            if (desiredDir.sqrMagnitude > 0.01f)
-            {
-                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(desiredDir), Time.deltaTime * 10f);
-            }
-
-            Vector3 moveDelta = (desiredDir * moveSpeed);
-            moveDelta.y = verticalVelocity;
-            controller.Move(moveDelta * Time.deltaTime);
-
-            ClampWithinArena();
+            ApplyExternalPush();
         }
 
-        private void ClampWithinArena()
+        private void ManualSteering(Vector3 targetPos)
         {
-            Vector3 clampedPos = transform.position;
-            float horizontalDist = Mathf.Sqrt(clampedPos.x * clampedPos.x + clampedPos.z * clampedPos.z);
-            float maxAllowedRadius = GameConstants.ArenaRadius - 0.8f;
-            if (horizontalDist > maxAllowedRadius)
+            Vector3 toTarget = targetPos - transform.position;
+            toTarget.y = 0f;
+
+            if (toTarget.sqrMagnitude > 0.01f)
             {
-                Vector2 clampedXZ = new Vector2(clampedPos.x, clampedPos.z).normalized * maxAllowedRadius;
-                clampedPos.x = clampedXZ.x;
-                clampedPos.z = clampedXZ.y;
+                Vector3 moveDir = toTarget.normalized;
+
+                // Face movement direction
+                Quaternion targetRot = Quaternion.LookRotation(moveDir);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 10f);
+
+                // Apply movement
+                if (controller.isGrounded) verticalVelocity = -4f;
+                else verticalVelocity += Physics.gravity.y * Time.deltaTime * 2f;
+
+                Vector3 moveDelta = moveDir * MoveSpeed;
+                moveDelta.y = verticalVelocity;
+                controller.Move(moveDelta * Time.deltaTime);
             }
-            if (clampedPos.y < 0f || controller.isGrounded)
+        }
+
+        private void ApplyExternalPush()
+        {
+            if (externalPushVelocity.sqrMagnitude > 0.01f)
             {
-                clampedPos.y = 0f;
+                controller.Move(externalPushVelocity * Time.deltaTime);
+                externalPushVelocity = Vector3.Lerp(externalPushVelocity, Vector3.zero, Time.deltaTime * 5f);
             }
-            transform.position = clampedPos;
+        }
+
+        public void GetShovedByMother(Vector3 shoveDirection, float force)
+        {
+            externalPushVelocity = shoveDirection * force;
+            stunTimer = 0.35f;
+            if (isPerformingGrab)
+            {
+                CancelGrab();
+            }
         }
 
         private void StartGrabAction()
         {
             isPerformingGrab = true;
-            grabWindupTimer = GameConstants.HunterGrabWindup; // 0.25s windup
-
-            // Face Con Út
-            Vector3 toConUt = (conUtTarget.transform.position - transform.position);
-            toConUt.y = 0f;
-            if (toConUt.sqrMagnitude > 0.01f)
-            {
-                transform.rotation = Quaternion.LookRotation(toConUt.normalized);
-            }
-
+            grabWindupTimer = GrabWindup;
+            if (navMeshAgent != null && navMeshAgent.isOnNavMesh) navMeshAgent.isStopped = true;
             if (swipeVfxVisual != null) swipeVfxVisual.SetActive(true);
-            Debug.Log("[HunterAI] VUNG TAY VỒ CON ÚT!");
         }
 
         private void HandleGrabExecution()
@@ -241,42 +183,36 @@ namespace RongRanChamCham
             grabWindupTimer -= Time.deltaTime;
             if (grabWindupTimer <= 0f)
             {
-                // Execute Swipe Hitbox Check
-                CheckGrabHit();
+                // Grab resolution
+                float distToTarget = conUtTarget != null ? Vector3.Distance(transform.position, conUtTarget.transform.position) : 999f;
+                if (distToTarget <= GrabRange)
+                {
+                    // Success!
+                    OnCaughtConUt?.Invoke();
+                }
 
+                // Cooldown
+                nextGrabAvailableTime = Time.time + GrabCooldown;
                 isPerformingGrab = false;
-                nextGrabAvailableTime = Time.time + grabCooldown;
+                if (navMeshAgent != null && navMeshAgent.isOnNavMesh) navMeshAgent.isStopped = false;
                 if (swipeVfxVisual != null) swipeVfxVisual.SetActive(false);
             }
         }
 
-        private void CheckGrabHit()
+        private void CancelGrab()
         {
-            if (conUtTarget == null) return;
+            isPerformingGrab = false;
+            nextGrabAvailableTime = Time.time + GrabCooldown;
+            if (navMeshAgent != null && navMeshAgent.isOnNavMesh) navMeshAgent.isStopped = false;
+            if (swipeVfxVisual != null) swipeVfxVisual.SetActive(false);
+        }
 
-            Vector3 diff = conUtTarget.transform.position - transform.position;
-            diff.y = 0f;
-
-            // Check if still within swipe reach
-            if (diff.magnitude <= grabRange * 1.15f)
-            {
-                // Check if Golden Shield buff is active
-                if (BuffSystem.Instance != null && BuffSystem.Instance.IsShieldActive)
-                {
-                    Vector3 bounceDir = -diff.normalized;
-                    GetShovedByMother(bounceDir, 12.0f);
-                    Debug.Log("[HunterAI] Bị Giáp Vàng đẩy nảy ra!");
-                    return;
-                }
-
-                // Hit Con Út!
-                Debug.Log("[HunterAI] CHÉM TRÚNG CON ÚT! BẮT THÀNH CÔNG!");
-                OnCaughtConUt?.Invoke();
-            }
-            else
-            {
-                Debug.Log("[HunterAI] VỒ HỤT! Con Út đã kịp né thoát!");
-            }
+        private void OnDrawGizmosSelected()
+        {
+            // Draw Grab Reach
+            Gizmos.color = Color.red;
+            Vector3 handPos = socketGrabHand != null ? socketGrabHand.position : transform.position + transform.forward * 0.8f + Vector3.up * 1f;
+            Gizmos.DrawWireSphere(handPos, GrabRange);
         }
     }
 }

@@ -5,14 +5,15 @@ namespace RongRanChamCham
 {
     public class SnakeChainIK : MonoBehaviour
     {
+        [Header("Configuration")]
+        [SerializeField] private GameBalanceConfig balanceConfig;
+
         [Header("Chain Nodes")]
         [SerializeField] private Transform motherRoot;
         [SerializeField] private List<ChildFollower> children = new List<ChildFollower>();
 
         [Header("Physics Tuning")]
-        [SerializeField] private float linkSpacing = GameConstants.ChainLinkDistance;
-        [SerializeField] private float followSpeed = GameConstants.ChainFollowSpeed;
-        [SerializeField] private float centrifugalWhipMultiplier = GameConstants.CentrifugalWhipMultiplier;
+        [SerializeField] private float paddingBetweenChildren = 0.5f;
 
         private List<Vector3> nodePositions = new List<Vector3>();
         private List<Vector3> nodeVelocities = new List<Vector3>();
@@ -20,23 +21,30 @@ namespace RongRanChamCham
 
         public ChildFollower ConUt => (children != null && children.Count > 0) ? children[children.Count - 1] : null;
 
+        private float FollowSpeed => balanceConfig != null ? balanceConfig.chainFollowSpeed : GameConstants.ChainFollowSpeed;
+        private float CentrifugalWhipMultiplier => balanceConfig != null ? balanceConfig.centrifugalWhipMultiplier : GameConstants.CentrifugalWhipMultiplier;
+
+        // Dynamic spacing derived from actual child collider radius + padding
+        public float LinkSpacing
+        {
+            get
+            {
+                if (children != null && children.Count > 0 && children[0] != null)
+                {
+                    return (children[0].BodyRadius * 2.0f) + paddingBetweenChildren;
+                }
+                return balanceConfig != null ? balanceConfig.chainLinkDistance : GameConstants.ChainLinkDistance;
+            }
+        }
+
         private void Awake()
         {
-            ValidateTuning();
             EnsureInitialized();
         }
 
         private void Start()
         {
-            ValidateTuning();
             EnsureInitialized();
-        }
-
-        private void ValidateTuning()
-        {
-            if (followSpeed <= 0.5f) followSpeed = GameConstants.ChainFollowSpeed;
-            if (linkSpacing <= 0.2f) linkSpacing = GameConstants.ChainLinkDistance;
-            if (centrifugalWhipMultiplier <= 0.1f) centrifugalWhipMultiplier = GameConstants.CentrifugalWhipMultiplier;
         }
 
         public void SetupChain(Transform mother, List<ChildFollower> childList)
@@ -49,8 +57,6 @@ namespace RongRanChamCham
 
         private void EnsureInitialized()
         {
-            ValidateTuning();
-
             if (motherRoot == null)
             {
                 var motherCtrl = UnityEngine.Object.FindAnyObjectByType<MotherController>();
@@ -72,15 +78,17 @@ namespace RongRanChamCham
             nodePositions.Clear();
             nodeVelocities.Clear();
 
+            float spacing = LinkSpacing;
+
             // Node 0 is Mother's tail anchor
-            Vector3 anchorPoint = motherRoot.position - motherRoot.forward * (linkSpacing * 0.75f);
+            Vector3 anchorPoint = motherRoot.position - motherRoot.forward * (spacing * 0.75f);
             anchorPoint.y = 0.5f;
             nodePositions.Add(anchorPoint);
             nodeVelocities.Add(Vector3.zero);
 
             for (int i = 0; i < children.Count; i++)
             {
-                Vector3 initialPos = anchorPoint - motherRoot.forward * (linkSpacing * (i + 1));
+                Vector3 initialPos = anchorPoint - motherRoot.forward * (spacing * (i + 1));
                 initialPos.y = 0.5f;
                 nodePositions.Add(initialPos);
                 nodeVelocities.Add(Vector3.zero);
@@ -92,63 +100,77 @@ namespace RongRanChamCham
 
         private void FixedUpdate()
         {
-            ValidateTuning();
-
             if (!isInitialized || nodePositions == null || nodePositions.Count != children.Count + 1)
             {
                 EnsureInitialized();
                 if (!isInitialized) return;
             }
 
-            // Node 0 strictly tracks Mother's rear anchor
-            Vector3 anchorPoint = motherRoot.position - (motherRoot.forward * (linkSpacing * 0.75f));
-            anchorPoint.y = 0.5f;
-            nodePositions[0] = anchorPoint;
+            float dt = Time.fixedDeltaTime;
+            float spacing = LinkSpacing;
 
-            // Update each child in chain sequence
-            for (int i = 0; i < children.Count; i++)
+            // 1. Update Anchor Point behind Mother
+            Vector3 targetAnchor = motherRoot.position - (motherRoot.forward * (spacing * 0.75f));
+            targetAnchor.y = 0.0f;
+            nodePositions[0] = Vector3.Lerp(nodePositions[0], targetAnchor, dt * FollowSpeed * 1.5f);
+
+            // 2. Multi-segment Spring-Damper Relaxation
+            for (int i = 1; i < nodePositions.Count; i++)
             {
-                int nodeIdx = i + 1;
-                Vector3 parentPos = nodePositions[nodeIdx - 1];
-                Vector3 currentPos = nodePositions[nodeIdx];
+                Vector3 parentPos = nodePositions[i - 1];
+                Vector3 currentPos = nodePositions[i];
 
-                Vector3 toParent = parentPos - currentPos;
-                toParent.y = 0f;
-                float currentDist = toParent.magnitude;
+                Vector3 delta = currentPos - parentPos;
+                delta.y = 0f;
+                float currentDist = delta.magnitude;
 
+                Vector3 idealPos;
                 if (currentDist > 0.001f)
                 {
-                    Vector3 idealDir = toParent / currentDist;
-                    Vector3 targetPos = parentPos - (idealDir * linkSpacing);
-                    targetPos.y = 0.5f;
+                    Vector3 dir = delta / currentDist;
+                    idealPos = parentPos + dir * spacing;
+                }
+                else
+                {
+                    idealPos = parentPos - motherRoot.forward * spacing;
+                }
 
-                    // Direct, reliable, springy follow
-                    float step = Mathf.Max(followSpeed, 18.0f) * Time.fixedDeltaTime;
-                    currentPos = Vector3.MoveTowards(currentPos, targetPos, step);
+                // Centrifugal whip effect during sharp turns
+                if (i > 1 && CentrifugalWhipMultiplier > 1.0f)
+                {
+                    Vector3 prevDir = (nodePositions[i - 1] - nodePositions[i - 2]).normalized;
+                    Vector3 whipOffset = Vector3.Cross(prevDir, Vector3.up) * (CentrifugalWhipMultiplier - 1.0f) * 0.3f;
+                    idealPos += whipOffset;
+                }
 
-                    // Add lateral centrifugal whip on sharp turns
-                    if (i > 0 && nodeVelocities.Count > nodeIdx - 1)
-                    {
-                        Vector3 tangent = Vector3.Cross(Vector3.up, idealDir);
-                        float lateralVelocity = Vector3.Dot(nodeVelocities[nodeIdx - 1], tangent);
-                        currentPos += tangent * (lateralVelocity * centrifugalWhipMultiplier * Time.fixedDeltaTime);
-                    }
+                Vector3 currentVel = nodeVelocities[i];
+                Vector3 smoothedPos = Vector3.SmoothDamp(currentPos, idealPos, ref currentVel, 1.0f / FollowSpeed, Mathf.Infinity, dt);
+                smoothedPos.y = 0.0f;
 
-                    // Enforce strict distance constraint
-                    Vector3 offsetFromParent = (currentPos - parentPos);
-                    offsetFromParent.y = 0f;
-                    if (offsetFromParent.magnitude > GameConstants.ChainMaxStretch)
-                    {
-                        currentPos = parentPos + (offsetFromParent.normalized * linkSpacing);
-                    }
-                    currentPos.y = 0.5f;
+                nodePositions[i] = smoothedPos;
+                nodeVelocities[i] = currentVel;
 
-                    nodeVelocities[nodeIdx] = (currentPos - nodePositions[nodeIdx]) / Time.fixedDeltaTime;
-                    nodePositions[nodeIdx] = currentPos;
+                // Update Child Transform
+                if (i - 1 < children.Count && children[i - 1] != null)
+                {
+                    Vector3 facingDir = parentPos - smoothedPos;
+                    facingDir.y = 0f;
+                    children[i - 1].UpdatePhysicsPosition(smoothedPos, facingDir, currentVel);
+                }
+            }
+        }
 
-                    // Apply to Child Transform
-                    Vector3 facing = idealDir;
-                    children[i].UpdatePhysicsPosition(currentPos, facing, nodeVelocities[nodeIdx]);
+        private void OnDrawGizmosSelected()
+        {
+            if (nodePositions == null || nodePositions.Count == 0) return;
+
+            Gizmos.color = Color.cyan;
+            for (int i = 0; i < nodePositions.Count; i++)
+            {
+                Gizmos.DrawWireSphere(nodePositions[i] + Vector3.up * 0.4f, 0.2f);
+                if (i > 0)
+                {
+                    Gizmos.DrawLine(nodePositions[i - 1] + Vector3.up * 0.4f, nodePositions[i] + Vector3.up * 0.4f);
                 }
             }
         }

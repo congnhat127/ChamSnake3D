@@ -2,23 +2,44 @@ using UnityEngine;
 
 namespace RongRanChamCham
 {
+    [RequireComponent(typeof(CharacterController))]
     public class ChildFollower : MonoBehaviour
     {
         [Header("Child Configuration")]
-        [SerializeField] private int indexInChain; // 0 = First Child, 1 = Middle, 2 = Con Út
+        [SerializeField] private int indexInChain; // 0 = Con 1, 1 = Con 2, 2 = Con Út
         [SerializeField] private bool isConUt = false;
-        [SerializeField] private Transform targetLeader; // Leader to follow
-        [SerializeField] private GameObject crownOrBow;
+        [SerializeField] private Transform targetLeader;
+
+        [Header("Rig & Sockets")]
+        [SerializeField] private Transform socketHead;
+        [SerializeField] private Transform socketCrown;
+
+        [Header("Visual Elements")]
+        [SerializeField] private GameObject crownVisual;
+        [SerializeField] private Renderer bodyRenderer;
 
         [Header("Animation & Wobble")]
         [SerializeField] private float wobbleSpeed = 10f;
         [SerializeField] private float wobbleAngle = 12f;
 
-        private Vector3 targetVelocity;
+        private CharacterController characterController;
         private Vector3 currentVelocity;
 
         public bool IsConUt => isConUt;
         public int Index => indexInChain;
+        public float BodyRadius => characterController != null ? characterController.radius : 0.35f;
+
+        private void Awake()
+        {
+            characterController = GetComponent<CharacterController>();
+            EnsureSockets();
+        }
+
+        private void EnsureSockets()
+        {
+            if (socketHead == null) socketHead = transform.Find("Socket_Head");
+            if (socketCrown == null) socketCrown = transform.Find("Socket_Crown");
+        }
 
         public void Initialize(int index, bool isTail, Transform leader)
         {
@@ -26,9 +47,9 @@ namespace RongRanChamCham
             isConUt = isTail;
             targetLeader = leader;
 
-            if (crownOrBow != null)
+            if (crownVisual != null)
             {
-                crownOrBow.SetActive(isConUt);
+                crownVisual.SetActive(isConUt);
             }
         }
 
@@ -36,7 +57,7 @@ namespace RongRanChamCham
         {
             if (targetLeader == null) return;
 
-            // Simple cute running wobble
+            // Cute cartoon running wobble
             float speed = currentVelocity.magnitude;
             if (speed > 0.5f)
             {
@@ -52,6 +73,18 @@ namespace RongRanChamCham
             if (facingDir.sqrMagnitude > 0.001f)
             {
                 transform.rotation = Quaternion.LookRotation(facingDir);
+            }
+        }
+
+        private void OnDrawGizmosSelected()
+        {
+            Gizmos.color = isConUt ? Color.magenta : Color.yellow;
+            Gizmos.DrawWireSphere(transform.position + Vector3.up * 0.45f, BodyRadius);
+
+            if (socketCrown != null && isConUt)
+            {
+                Gizmos.color = Color.yellow;
+                Gizmos.DrawWireCube(socketCrown.position, Vector3.one * 0.15f);
             }
         }
     }

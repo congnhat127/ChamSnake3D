@@ -35,12 +35,12 @@ public static class UnityMcpBridge
     private static double lastCheckTime = 0;
     private static void CheckAndEnsureRunning()
     {
-        if (File.Exists("Temp/trigger_phase1.tmp"))
+        if (File.Exists("Temp/trigger_setup_chibi.tmp"))
         {
             try
             {
-                File.Delete("Temp/trigger_phase1.tmp");
-                CharacterAssetPipeline.BuildPhase1();
+                File.Delete("Temp/trigger_setup_chibi.tmp");
+                SetupChibiPrefabs.Execute();
             }
             catch (Exception ex)
             {
@@ -173,8 +173,7 @@ public static class UnityMcpBridge
                 });
                 break;
 
-            case "setup_phase1":
-            case "generate_prefabs":
+            case "setup_chibi":
                 {
                     EditorApplication.CallbackFunction buildCb = null;
                     buildCb = () =>
@@ -182,8 +181,8 @@ public static class UnityMcpBridge
                         EditorApplication.update -= buildCb;
                         try
                         {
-                            CharacterAssetPipeline.BuildPhase1();
-                            SendJsonResponse(res, new { status = "success", message = "Phase 1: Character Prefabs and Showcase Scene generated successfully!" });
+                            SetupChibiPrefabs.Execute();
+                            SendJsonResponse(res, new { status = "success", message = "Speckit 001: Chibi Prefabs and Showcase Scene updated successfully!" });
                         }
                         catch (Exception ex)
                         {
