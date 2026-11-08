@@ -13,7 +13,8 @@ namespace RongRanChamCham
         [SerializeField] private List<ChildFollower> children = new List<ChildFollower>();
 
         [Header("Physics Tuning")]
-        [SerializeField] private float paddingBetweenChildren = 0.5f;
+        [Tooltip("Extra padding between child link boundaries (m). Set to 0.05m so child arms naturally reach and touch the person ahead.")]
+        [SerializeField] private float paddingBetweenChildren = 0.05f;
 
         private List<Vector3> nodePositions = new List<Vector3>();
         private List<Vector3> nodeVelocities = new List<Vector3>();

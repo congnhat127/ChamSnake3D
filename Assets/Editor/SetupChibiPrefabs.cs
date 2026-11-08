@@ -360,7 +360,9 @@ public static class SetupChibiPrefabs
         // Clean old
         foreach (var rootGo in scene.GetRootGameObjects())
         {
-            if (rootGo.name.Contains("Mother") || rootGo.name.Contains("Hunter") || rootGo.name.Contains("Child") || rootGo.name.Contains("Con Út"))
+            if (rootGo.name.Contains("Mother") || rootGo.name.Contains("Hunter") || rootGo.name.Contains("Child") || 
+                rootGo.name.Contains("Con Út") || rootGo.name.Contains("DauDan") || rootGo.name.Contains("Khuc") || 
+                rootGo.name.Contains("ThayThuoc"))
             {
                 UnityEngine.Object.DestroyImmediate(rootGo);
             }
@@ -371,47 +373,59 @@ public static class SetupChibiPrefabs
         var childPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabsDir}/Child.prefab");
         var hunterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabsDir}/Hunter.prefab");
 
+        // 1. Người Đứng Đầu (Đầu Đàn)
         if (motherPrefab != null)
         {
             var m = (GameObject)PrefabUtility.InstantiatePrefab(motherPrefab);
-            m.name = "Mother (Rắn Mẹ)";
+            m.name = "DauDan (Người Đứng Đầu / Đầu Đàn)";
             m.transform.position = new Vector3(0f, 0f, 0f);
+            m.transform.rotation = Quaternion.identity;
         }
 
+        // 2. Đoàn Rồng Rắn nối đuôi nhau (Tay chạm và bám chặt lưng/hông bạn đi trước)
         if (childPrefab != null)
         {
+            // Khoảng cách xấp xỉ 0.68m để đôi tay vươn dài (z=0.38) chạm khớp vào lưng bạn phía trước
             var c1 = (GameObject)PrefabUtility.InstantiatePrefab(childPrefab);
-            c1.name = "Child 1";
-            c1.transform.position = new Vector3(0f, 0f, -1.3f);
+            c1.name = "KhucThan 1 (Đoàn Rồng Rắn)";
+            c1.transform.position = new Vector3(0f, 0f, -0.68f);
             var f1 = c1.GetComponent<ChildFollower>();
             if (f1 != null) f1.Initialize(0, false, null);
 
             var c2 = (GameObject)PrefabUtility.InstantiatePrefab(childPrefab);
-            c2.name = "Child 2";
-            c2.transform.position = new Vector3(0f, 0f, -2.6f);
+            c2.name = "KhucThan 2 (Đoàn Rồng Rắn)";
+            c2.transform.position = new Vector3(0f, 0f, -1.36f);
             var f2 = c2.GetComponent<ChildFollower>();
             if (f2 != null) f2.Initialize(1, false, null);
 
             var c3 = (GameObject)PrefabUtility.InstantiatePrefab(childPrefab);
-            c3.name = "Con Út";
-            c3.transform.position = new Vector3(0f, 0f, -3.9f);
+            c3.name = "KhucDuoi (Bé Út / Con Út)";
+            c3.transform.position = new Vector3(0f, 0f, -2.04f);
             var f3 = c3.GetComponent<ChildFollower>();
             if (f3 != null)
             {
                 f3.Initialize(2, true, null);
                 var conUtMat = GetMat("Mat_ConUt");
-                // Apply conUtMat to body model
                 var body = c3.transform.Find("Model_Body");
                 if (body != null && conUtMat != null) ApplyMaterial(body.gameObject, conUtMat);
             }
         }
 
+        // 3. Thầy Thuốc (Đối diện Đầu Đàn)
         if (hunterPrefab != null)
         {
             var h = (GameObject)PrefabUtility.InstantiatePrefab(hunterPrefab);
-            h.name = "Hunter (Thầy Thuốc)";
-            h.transform.position = new Vector3(0f, 0f, 4.5f);
+            h.name = "ThayThuoc (Thầy Thuốc)";
+            h.transform.position = new Vector3(0f, 0f, 3.2f);
             h.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+        }
+
+        // 4. Căn góc Camera góc nghiêng 3/4 nhìn rõ toàn cảnh đối đầu & khuôn mặt
+        var camGo = GameObject.FindWithTag("MainCamera") ?? GameObject.Find("Main Camera");
+        if (camGo != null)
+        {
+            camGo.transform.position = new Vector3(-3.4f, 1.7f, 0.6f);
+            camGo.transform.LookAt(new Vector3(0f, 0.85f, 0.6f));
         }
 
         EditorSceneManager.SaveScene(scene);
