@@ -5,94 +5,96 @@
 
 ---
 
-## 1. Kiến trúc Hệ thống Tổng thể (System Architecture)
+## 1. Sơ đồ Luồng Điều khiển Swerve Drag Follow & Xử lý Trận đấu
 
 ```
-[Touch / Mouse Drag Input] 
-           │ (Normalized Lateral Offset X)
-           ▼
-[EndlessSnakeLeaderMotor] ─── (Forward Speed + Clamped X Position)
-           │
-           │ (Transform History & Centrifugal Angular Velocity)
-           ▼
-[SnakeTailCentrifugalMotor] ─── (Pulls Child 1 -> Child 2 -> Child 3...)
-           │
-           │ (SphereCollider Va chạm)
-           ▼
-[ObstacleNode.cs] ─── (OnTriggerEnter với Snake Node)
-           │
-           ▼
-[ChamChamChamReviveManager] ─── (Slow-motion 0.05x + Direction QTE Challenge)
-     ├── THẮNG (Look Away) ──> [Revive Buff + Shield 3s] ──> Resume Running
-     └── THUA (Match Dir)   ──> [EndlessRunnerGameManager.GameOver] ──> Summary UI
+[Màn hình Cảm ứng Mobile / Chuột PC]
+      │
+      │ (Touch Down / Drag Delta / Touch Up)
+      ▼
+[SwerveInputHandler.cs] ─────────────> float NormalizedDeltaX
+      │
+      ▼
+[EndlessSnakeLeaderMotor.cs] ────────> Vận tốc Z (Forward) + Tọa độ X (Swerve Clamped)
+      │                                     │
+      │ (Lưu vị trí vào Circular Buffer)    ▼ (Cập nhật bước chân thủ tục)
+      ▼                                [ChibiProceduralAnimator.cs]
+[SnakeTailCentrifugalMotor.cs] ──────> Đàn con bám đuôi + Tính toán độ văng ly tâm (Whip)
+      │
+      │ (Từng đốt mang SphereCollider)
+      ▼
+[ObstacleNode.cs] ───────────────────> Phát hiện va chạm (OnTriggerEnter)
+      │
+      ▼
+[ChamChamChamReviveManager.cs] ──────> Kích hoạt Bullet Time 0.05x + UI QTE
+      ├── THẮNG (Khác hướng Thần chỉ) ──> Khiên Bất Tử 3s + Đẩy văng cản ──> Tiếp tục chạy!
+      └── THUA (Trùng hướng Thần chỉ)   ──> [EndlessRunnerGameManager.GameOver]
 ```
 
 ---
 
-## 2. Chi tiết các Thành phần Kỹ thuật (Technical Components)
+## 2. Thiết kế Kỹ thuật Từng Thành phần (Zero-GC, Mobile-First)
 
-### 2.1. Cấu hình Cân bằng (`EndlessBalanceConfig.cs`)
-- Nằm tại: `Assets/_Game/Scripts/Configurations/EndlessBalanceConfig.cs`
-- Kế thừa: `ScriptableObject`
-- Quản lý tất cả thông số: Tốc độ cơ bản, độ nhạy vuốt, hệ số văng ly tâm, thời gian phản xạ QTE Chăm Chăm Chăm, bán kính đường chạy.
+### 2.1. `EndlessBalanceConfig.cs` (ScriptableObject)
+- Đường dẫn: `Assets/_Game/Scripts/Configurations/EndlessBalanceConfig.cs`
+- Lưu trữ mọi tham số cân bằng: Tốc độ cơ bản, độ nhạy Swerve, khoảng cách đốt con, lực ly tâm, thời gian QTE. Designer có thể tinh chỉnh trực tiếp trong Unity Inspector mà không cần chạm vào code.
 
-### 2.2. Điều khiển 1 Ngón (`OneFingerRunnerInput.cs`)
-- Nằm tại: `Assets/_Game/Scripts/Input/OneFingerRunnerInput.cs`
-- Cơ chế:
-  - Mobile: Nhận `TouchPhase.Moved` hoặc `TouchPhase.Stationary`, tính delta X kéo theo chiều ngang màn hình.
-  - PC / Editor: Nhận kéo chuột trái (Mouse Drag) hoặc phím `A`/`D` / `Mũi tên`.
-  - Cung cấp: `float TargetLateralX` (chuẩn hóa từ `-1.0` tới `+1.0`).
+### 2.2. `SwerveInputHandler.cs` (Bộ Điều Khiển Rê Tay Swerve)
+- Đường dẫn: `Assets/_Game/Scripts/Input/SwerveInputHandler.cs`
+- Logic hoạt động:
+  - Khi bắt đầu chạm (`TouchPhase.Began` hoặc `Input.GetMouseButtonDown(0)`): Ghi nhận `lastTouchPos = currentTouchPos`.
+  - Trong quá trình chạm giữ (`TouchPhase.Moved` hoặc `Input.GetMouseButton(0)`):
+    - `deltaX = (currentTouchPos.x - lastTouchPos.x) / Screen.width`.
+    - `lastTouchPos = currentTouchPos`.
+    - Cung cấp giá trị `MoveDeltaX = deltaX * swerveSensitivity`.
+  - Nếu ngón tay đứng yên (`TouchPhase.Stationary`): `MoveDeltaX = 0`.
+  - Khi nhấc ngón tay (`TouchPhase.Ended`): `MoveDeltaX = 0`, nhân vật giữ nguyên làn hiện tại.
+  - PC Fallback: Nhấn giữ `A`/`D` hoặc `Mũi tên` sẽ cung cấp delta tương đương.
 
-### 2.3. Motor Đầu Đàn (`EndlessSnakeLeaderMotor.cs`)
-- Nằm tại: `Assets/_Game/Scripts/Entities/EndlessSnakeLeaderMotor.cs`
-- Điều khiển nhân vật Đầu Đàn:
-  - Vector tiến: Luôn tịnh tiến về trục `+Z` với vận tốc `currentSpeed`.
-  - Vector ngang: Nội suy mượt mà trục `X` theo `TargetLateralX * RoadHalfWidth`.
-  - Góc xoay người: Hơi nghiêng người (Bank/Tilt) theo hướng đánh lái để tạo cảm giác thể thao và sống động.
-  - Tích hợp `ChibiProceduralAnimator` để chân bước nhịp nhàng liên tục theo vận tốc.
+### 2.3. `EndlessSnakeLeaderMotor.cs` (Motor Đầu Đàn)
+- Đường dẫn: `Assets/_Game/Scripts/Entities/EndlessSnakeLeaderMotor.cs`
+- Điều khiển:
+  - Tịnh tiến về phía trước: `transform.position += Vector3.forward * (currentSpeed * Time.deltaTime)`.
+  - Điều hướng ngang: `currentX = Mathf.Clamp(currentX + MoveDeltaX * roadHalfWidth, -roadHalfWidth, roadHalfWidth)`.
+  - Góc nghiêng thân (Roll/Tilt): Nghiêng nhẹ theo vận tốc ngang để tạo cảm giác đánh lái linh hoạt và chân thực.
+  - Gọi `ChibiProceduralAnimator` để đánh chân và lắc đầu theo vận tốc chạy.
 
-### 2.4. Motor Đuôi Rắn Ly Tâm (`SnakeTailCentrifugalMotor.cs`)
-- Nằm tại: `Assets/_Game/Scripts/Systems/SnakeTailCentrifugalMotor.cs`
-- Thuật toán bám đuôi không cấp phát bộ nhớ (Zero GC):
-  - Dùng mảng vòng tròn cố định (`Fixed Circular Buffer`) lưu lịch sử vị trí đường đi của Đầu Đàn.
-  - Mỗi đốt con lấy mẫu vị trí trong buffer theo khoảng cách mong muốn ($d = 1.2\text{ m}$).
-  - **Lực văng ly tâm:** Khi Đầu Đàn bẻ góc gắt ($\Delta X / \Delta t$ lớn), các đốt con phía sau bị cộng thêm một vector dịch chuyển hướng ra mép cua ($V_{centrifugal} = -\text{Sign}(\text{Turn}) \times \text{Factor} \times \text{Speed}^2$), tạo nên hiệu ứng đuôi rắn vắt qua lại cực kỳ chân thực.
-  - Mỗi đốt con có gắn `SphereCollider` (IsTrigger = true) để kiểm tra va chạm.
+### 2.4. `SnakeTailCentrifugalMotor.cs` (Bộ Đệm Vòng Tròn & Vật Lý Quán Tính)
+- Đường dẫn: `Assets/_Game/Scripts/Systems/SnakeTailCentrifugalMotor.cs`
+- **Zero GC Circular Buffer:**
+  - Cấp phát mảng tĩnh cố định `Vector3[] positionHistory = new Vector3[500]` và `Vector3[] rotationHistory`.
+  - Ghi nhận vị trí Đầu Đàn mỗi FixedUpdate/Update mà không sinh bất kỳ rác bộ nhớ nào (No Heap Allocations).
+- **Thuật toán Bám Đuôi & Quán Tính Ly Tâm:**
+  - Mỗi đốt con $i$ lấy mẫu vị trí trong buffer lùi lại một quãng đường $i \times 1.2\text{ m}$.
+  - Tính vận tốc ngang tức thời của đốt trước $\rightarrow$ Áp dụng offset ly tâm ngược chiều:
+    $$\Delta X_{whip} = -\text{Sign}(\text{AngularVelocity}) \times \text{Factor} \times \text{Speed}$$
+  - Mỗi đốt con gắn `SphereCollider` (IsTrigger = true) và script `TailSegmentTrigger.cs`.
 
-### 2.5. Hệ thống Sinh Đường Vô Tận & Object Pooling (`TrackChunkSpawner.cs`)
-- Nằm tại: `Assets/_Game/Scripts/Environment/TrackChunkSpawner.cs`
-- Cấu trúc Chunk:
-  - Mỗi `TrackChunk` dài chuẩn $30\text{ m}$ theo trục Z.
-  - Sử dụng hàng đợi tuần hoàn (Queue / Pool) gồm 5-6 chunks hoạt động đồng thời.
-  - Khi Đầu Đàn vượt qua điểm cuối của Chunk cũ $\rightarrow$ Chunk cũ được tái sử dụng (Reposition) lên đầu con đường.
-- **Biomes Văn Hóa:**
-  - `Theme_VietnamVillage`: Mặt gạch nung Bát Tràng, bụi tre xanh hai bên, chum vại gốm làm vật cản.
-  - `Theme_HoiAn`: Mặt đá rêu phong, dàn hoa giấy, cột treo đèn lồng Hội An đung đưa.
-  - `Theme_KoreaPalace`: Lát đá hoa cương cung điện, tường Dancheong, đèn Cheongsachorong xanh đỏ, chum tương Onggi.
+### 2.5. `TrackChunkSpawner.cs` (Sinh Đường Vô Tận & Object Pooling)
+- Đường dẫn: `Assets/_Game/Scripts/Environment/TrackChunkSpawner.cs`
+- Cơ chế quản lý:
+  - Giữ danh sách xoay vòng gồm 4 chunk $30\text{ m}$ (Tổng chiều dài nhìn thấy $120\text{ m}$).
+  - Khi Đầu Đàn đi qua chunk đầu tiên $\rightarrow$ Thu hồi chunk cũ ở sau lưng và chuyển dịch tọa độ lên phía trước đầu đoàn.
+- **Biomes Văn Hóa Được Tích Hợp Sẵn:**
+  - Prefab `Chunk_Vietnam_Village`: Lát gạch Bát Tràng, bụi tre hai bên, chướng ngại vật là cụm chum sành hoa văn rạn và đống rơm vàng.
+  - Prefab `Chunk_Korea_Palace`: Lát đá hoa cương, tường Dancheong ngũ sắc, chướng ngại vật là chum tương Onggi và cột đèn Cheongsachorong.
+  - Prefab `Chunk_HoiAn_Lantern`: Lát đá cổ, cột treo đèn lồng Hội An đung đưa.
 
-### 2.6. Quản lý Cơ Chế Cứu Mạng "Chăm Chăm Chăm" (`ChamChamChamReviveManager.cs`)
-- Nằm tại: `Assets/_Game/Scripts/Systems/ChamChamChamReviveManager.cs`
-- Luồng hoạt động:
-  1. Khi nhận tín hiệu va chạm từ bất kỳ đốt nào:
-  2. Bật `Time.timeScale = 0.05f`.
+### 2.6. `ChamChamChamReviveManager.cs` (Cơ Chế Cứu Mạng Phản Xạ)
+- Đường dẫn: `Assets/_Game/Scripts/Systems/ChamChamChamReviveManager.cs`
+- Quy trình kích hoạt:
+  1. Khi nhận sự kiện va chạm từ `TailSegmentTrigger`:
+  2. Bật Bullet Time (`Time.timeScale = 0.05f`).
   3. Bật Canvas QTE "Chăm Chăm Chăm!":
-     - Hiển thị cánh tay thần hộ mệnh chỉ hướng (Trái / Phải / Lên).
+     - Hiệu ứng âm thanh / chữ hô: *"Chăm... Chăm... CHĂM!"*
+     - Thần Hộ Mệnh giơ tay chỉ ngẫu nhiên: `Trái` (-1), `Phải` (+1), `Lên` (0).
      - Đếm ngược thanh thời gian $1.2\text{ s}$ thực tế.
-  4. Người chơi vuốt màn hình sang Trái / Phải / Lên.
-  5. Đối chiếu kết quả:
-     - Nếu hướng chọn **KHÁC** hướng Thần chỉ $\rightarrow$ **CHIẾN THẮNG**:
-       - Khôi phục `Time.timeScale = 1.0f`.
-       - Kích hoạt Khiên Bất Tử 3 giây, đẩy lùi chướng ngại vật va chạm, tiếp tục chạy.
-     - Nếu hướng chọn **TRÙNG** hướng Thần chỉ hoặc hết giờ $\rightarrow$ **THẤT BẠI**:
-       - Kích hoạt Game Over.
-
-### 2.7. Quản lý Điểm & Trạng thái Game (`EndlessRunnerGameManager.cs`)
-- Nằm tại: `Assets/_Game/Scripts/Managers/EndlessRunnerGameManager.cs`
-- Quản lý vòng đời trận đấu: `Intro`, `Running`, `ReviveQTE`, `GameOver`.
-- Tính điểm theo cự ly di chuyển (Mét) và số bánh quà dân gian nhặt được.
+  4. Người chơi vuốt phản xạ:
+     - **Thắng (Khác hướng Thần chỉ):** Trả `Time.timeScale = 1.0f`, nổ hiệu ứng hào quang, kích hoạt khiên bất tử $3.0\text{ s}$, hất văng vật cản gây tai nạn.
+     - **Thua (Trùng hướng Thần chỉ hoặc hết giờ):** Kích hoạt trạng thái `GameOver`.
 
 ---
 
-## 3. Quy tắc Kiểm tra & Nghiệm thu (Verification Strategy)
-1. **Zero Error Compilation:** Kiểm tra log Unity qua `unity_get_console_logs` đảm bảo không có bất kỳ warning/error nào.
-2. **Playable Sandbox Scene:** Thiết lập `Assets/_Game/Scenes/Playground_EndlessRunner.unity` với đầy đủ camera Cinemachine theo dõi từ trên cao chế độ 3rd person, đường chạy tự động lặp vô tận, đàn con bám đuôi uốn lượn và tính năng Chăm Chăm Chăm hoạt động trực tiếp.
+## 3. Quy chuẩn Kiểm thử & Nghiệm thu (Verification Strategy)
+1. **Kiểm tra Biên dịch Unity:** Xác nhận `Editor.log` hoàn toàn sạch sẽ, không có bất kỳ CS error hay unhandled exception nào.
+2. **Playground Scene:** Thiết lập hoàn chỉnh `Playground_EndlessRunner.unity` với Cinemachine 3.x bám theo Đầu Đàn, đường chạy vô tận cuộn mượt mà và cơ chế Chăm Chăm Chăm thử nghiệm trực tiếp được.
