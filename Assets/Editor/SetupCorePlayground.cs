@@ -44,7 +44,8 @@ public static class SetupCorePlayground
                 rootGo.name.Contains("Hunter") || rootGo.name.Contains("Child") || 
                 rootGo.name.Contains("MANAGERS") || rootGo.name.Contains("SnakeChain") ||
                 rootGo.name.Contains("DauDan") || rootGo.name.Contains("ThayThuoc") ||
-                rootGo.name.Contains("Pickup_"))
+                rootGo.name.Contains("Pickup_") || rootGo.name.Contains("Khuc") ||
+                rootGo.name.Contains("Doan Rong Ran") || rootGo.name.Contains("Con Ut"))
             {
                 UnityEngine.Object.DestroyImmediate(rootGo);
             }

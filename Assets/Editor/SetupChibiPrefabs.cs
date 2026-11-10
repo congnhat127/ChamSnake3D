@@ -17,7 +17,7 @@ public static class SetupChibiPrefabs
     [MenuItem("Tools/Rong Ran/Setup Chibi Rigs & Sockets (Spec 001)")]
     public static void Execute()
     {
-        Debug.Log("[Speckit 001] Building Prefabs with 3D Models, Heads, and Expressive Faces...");
+        Debug.Log("[Speckit 001] Building Polished Chibi Prefabs with Solid Models and Expressive Faces...");
 
         EnsureDir(PrefabsDir);
 
@@ -40,7 +40,7 @@ public static class SetupChibiPrefabs
             Debug.LogError($"[SetupChibiPrefabs] RenderCharacterSnapshots error: {ex}");
         }
 
-        Debug.Log("[Speckit 001] Complete! Characters now have expressive faces, eyes, and traditional accessories!");
+        Debug.Log("[Speckit 001] Complete! Characters now have expressive faces, traditional accessories, and smooth watertight 3D models!");
     }
 
     private static void EnsureDir(string path)
@@ -73,41 +73,12 @@ public static class SetupChibiPrefabs
         }
     }
 
-    private static GameObject AttachFoot(Transform parent, string socketName, Vector3 pos, Material mat)
+    private static GameObject CreateSocket(Transform parent, string socketName, Vector3 pos)
     {
         GameObject socket = new GameObject(socketName);
         socket.transform.SetParent(parent, false);
         socket.transform.localPosition = pos;
-
-        GameObject footAsset = LoadModel("Chibi_Foot.obj");
-        if (footAsset != null)
-        {
-            GameObject footInst = (GameObject)PrefabUtility.InstantiatePrefab(footAsset, socket.transform);
-            footInst.name = "Foot_Visual";
-            footInst.transform.localPosition = Vector3.zero;
-            footInst.transform.localRotation = Quaternion.identity;
-            footInst.transform.localScale = Vector3.one;
-            ApplyMaterial(footInst, mat);
-        }
         return socket;
-    }
-
-    private static void AttachFace(Transform headTransform, Material faceMat)
-    {
-        GameObject faceCapAsset = LoadModel("Face_Cap.obj");
-        if (faceCapAsset != null)
-        {
-            GameObject faceInst = (GameObject)PrefabUtility.InstantiatePrefab(faceCapAsset, headTransform);
-            faceInst.name = "Face_Expressive";
-            faceInst.transform.localPosition = Vector3.zero;
-            faceInst.transform.localRotation = Quaternion.identity;
-            faceInst.transform.localScale = new Vector3(1.008f, 1.008f, 1.008f);
-            ApplyMaterial(faceInst, faceMat);
-        }
-        else
-        {
-            Debug.LogWarning("[Speckit 001] Face_Cap.obj model not found!");
-        }
     }
 
     private static void BuildMotherPrefab()
@@ -116,6 +87,7 @@ public static class SetupChibiPrefabs
         GameObject root = new GameObject("Mother");
         root.tag = "Player";
         var motherMat = GetMat("Mat_Mother_Outfit") ?? GetMat("Mat_Mother");
+        var hairMat = GetMat("Mat_Hair");
 
         // 1. CharacterController
         var cc = root.AddComponent<CharacterController>();
@@ -128,17 +100,9 @@ public static class SetupChibiPrefabs
         var mc = root.AddComponent<MotherController>();
 
         // 3. Sockets
-        GameObject sHead = new GameObject("Socket_Head");
-        sHead.transform.SetParent(root.transform, false);
-        sHead.transform.localPosition = new Vector3(0f, 1.35f, 0.02f);
-
-        GameObject sHandL = new GameObject("Socket_Hand_L");
-        sHandL.transform.SetParent(root.transform, false);
-        sHandL.transform.localPosition = new Vector3(-1.40f, 0.84f, 0.20f);
-
-        GameObject sHandR = new GameObject("Socket_Hand_R");
-        sHandR.transform.SetParent(root.transform, false);
-        sHandR.transform.localPosition = new Vector3(1.40f, 0.84f, 0.20f);
+        GameObject sHead = CreateSocket(root.transform, "Socket_Head", new Vector3(0f, 1.34f, 0.0f));
+        GameObject sHandL = CreateSocket(root.transform, "Socket_Hand_L", new Vector3(-1.32f, 0.82f, 0.22f));
+        GameObject sHandR = CreateSocket(root.transform, "Socket_Hand_R", new Vector3(1.32f, 0.82f, 0.22f));
 
         // 4. Attach Body Model: Chibi_Mother.obj (Áo bà ba & curved embracing arms)
         GameObject motherModelAsset = LoadModel("Chibi_Mother.obj");
@@ -155,10 +119,9 @@ public static class SetupChibiPrefabs
 
         // 5. Solid 3D Chibi Head with Expressive Face
         GameObject headAsset = LoadModel("Chibi_Head.obj");
-        GameObject headGo = null;
         if (headAsset != null)
         {
-            headGo = (GameObject)PrefabUtility.InstantiatePrefab(headAsset, sHead.transform);
+            GameObject headGo = (GameObject)PrefabUtility.InstantiatePrefab(headAsset, sHead.transform);
             headGo.name = "Head";
             headGo.transform.localPosition = Vector3.zero;
             headGo.transform.localRotation = Quaternion.identity;
@@ -167,14 +130,26 @@ public static class SetupChibiPrefabs
             if (faceMat != null) ApplyMaterial(headGo, faceMat);
         }
 
-        // 6. Nón Lá on head
+        // 6. 3D Styled Hair
+        GameObject hairAsset = LoadModel("Chibi_Hair_Mother.obj");
+        if (hairAsset != null)
+        {
+            GameObject hairInst = (GameObject)PrefabUtility.InstantiatePrefab(hairAsset, sHead.transform);
+            hairInst.name = "Hair_Mother";
+            hairInst.transform.localPosition = Vector3.zero;
+            hairInst.transform.localRotation = Quaternion.identity;
+            hairInst.transform.localScale = Vector3.one;
+            if (hairMat != null) ApplyMaterial(hairInst, hairMat);
+        }
+
+        // 7. Nón Lá on head (resting naturally on the hair)
         GameObject nonLaAsset = LoadModel("NonLa.obj");
         if (nonLaAsset != null)
         {
             GameObject nonLaInst = (GameObject)PrefabUtility.InstantiatePrefab(nonLaAsset, sHead.transform);
             nonLaInst.name = "NonLa";
-            nonLaInst.transform.localPosition = new Vector3(0f, 0.28f, 0f);
-            nonLaInst.transform.localRotation = Quaternion.Euler(6f, 0f, 0f);
+            nonLaInst.transform.localPosition = new Vector3(0f, 0.16f, 0f);
+            nonLaInst.transform.localRotation = Quaternion.Euler(5f, 0f, 0f);
             nonLaInst.transform.localScale = Vector3.one;
 
             var nonLaMat = GetMat("Mat_NonLa");
@@ -188,8 +163,8 @@ public static class SetupChibiPrefabs
         auraGo.SetActive(false);
 
         // 9. Foot Sockets & Procedural Stepping Motor
-        GameObject sFootL = AttachFoot(root.transform, "Socket_Foot_L", new Vector3(-0.16f, 0.08f, 0.04f), motherMat);
-        GameObject sFootR = AttachFoot(root.transform, "Socket_Foot_R", new Vector3(0.16f, 0.08f, 0.04f), motherMat);
+        GameObject sFootL = CreateSocket(root.transform, "Socket_Foot_L", new Vector3(-0.13f, 0.07f, 0.05f));
+        GameObject sFootR = CreateSocket(root.transform, "Socket_Foot_R", new Vector3(0.13f, 0.07f, 0.05f));
 
         var procAnim = root.AddComponent<ChibiProceduralAnimator>();
         var animSO = new SerializedObject(procAnim);
@@ -217,22 +192,18 @@ public static class SetupChibiPrefabs
         string path = $"{PrefabsDir}/Child.prefab";
         GameObject root = new GameObject("Child");
         root.tag = "Child";
+        var hairMat = GetMat("Mat_Hair");
 
         var cc = root.AddComponent<CharacterController>();
-        cc.center = new Vector3(0f, 0.55f, 0f);
-        cc.height = 1.1f;
-        cc.radius = 0.35f;
+        cc.center = new Vector3(0f, 0.45f, 0f);
+        cc.height = 0.9f;
+        cc.radius = 0.30f;
         cc.minMoveDistance = 0.001f;
 
         var cf = root.AddComponent<ChildFollower>();
 
-        GameObject sHead = new GameObject("Socket_Head");
-        sHead.transform.SetParent(root.transform, false);
-        sHead.transform.localPosition = new Vector3(0f, 0.82f, 0.02f);
-
-        GameObject sCrown = new GameObject("Socket_Crown");
-        sCrown.transform.SetParent(sHead.transform, false);
-        sCrown.transform.localPosition = new Vector3(0f, 0.32f, 0f);
+        GameObject sHead = CreateSocket(root.transform, "Socket_Head", new Vector3(0f, 0.78f, 0.0f));
+        GameObject sCrown = CreateSocket(sHead.transform, "Socket_Crown", new Vector3(0f, 0.22f, 0f));
 
         // 1. Attach Body Model: Chibi_Child.obj
         GameObject childModelAsset = LoadModel("Chibi_Child.obj");
@@ -250,18 +221,29 @@ public static class SetupChibiPrefabs
             bodyRend = modelInst.GetComponentInChildren<Renderer>();
         }
 
-        // 2. Solid 3D Chibi Head with Cute Anime Face
+        // 2. Solid 3D Chibi Head with Cute Face
         GameObject headAsset = LoadModel("Chibi_Head.obj");
-        GameObject headGo = null;
         if (headAsset != null)
         {
-            headGo = (GameObject)PrefabUtility.InstantiatePrefab(headAsset, sHead.transform);
+            GameObject headGo = (GameObject)PrefabUtility.InstantiatePrefab(headAsset, sHead.transform);
             headGo.name = "Head";
             headGo.transform.localPosition = Vector3.zero;
             headGo.transform.localRotation = Quaternion.identity;
-            headGo.transform.localScale = new Vector3(0.82f, 0.82f, 0.82f);
+            headGo.transform.localScale = new Vector3(0.85f, 0.85f, 0.85f);
             var childFaceMat = GetMat("Mat_Child_Face");
             if (childFaceMat != null) ApplyMaterial(headGo, childFaceMat);
+        }
+
+        // 3. Traditional Vietnamese Folk Chỏm Tóc (Hair)
+        GameObject hairAsset = LoadModel("Chibi_Hair_Child.obj");
+        if (hairAsset != null)
+        {
+            GameObject hairInst = (GameObject)PrefabUtility.InstantiatePrefab(hairAsset, sHead.transform);
+            hairInst.name = "Hair_Child";
+            hairInst.transform.localPosition = Vector3.zero;
+            hairInst.transform.localRotation = Quaternion.identity;
+            hairInst.transform.localScale = new Vector3(0.85f, 0.85f, 0.85f);
+            if (hairMat != null) ApplyMaterial(hairInst, hairMat);
         }
 
         // 4. Crown on Socket_Crown (for Con Út)
@@ -281,9 +263,8 @@ public static class SetupChibiPrefabs
         }
 
         // 5. Foot Sockets & Procedural Stepping Motor
-        var childFootMat = GetMat("Mat_Child");
-        GameObject sFootL = AttachFoot(root.transform, "Socket_Foot_L", new Vector3(-0.12f, 0.06f, 0.03f), childFootMat);
-        GameObject sFootR = AttachFoot(root.transform, "Socket_Foot_R", new Vector3(0.12f, 0.06f, 0.03f), childFootMat);
+        GameObject sFootL = CreateSocket(root.transform, "Socket_Foot_L", new Vector3(-0.09f, 0.04f, 0.03f));
+        GameObject sFootR = CreateSocket(root.transform, "Socket_Foot_R", new Vector3(0.09f, 0.04f, 0.03f));
 
         var procAnim = root.AddComponent<ChibiProceduralAnimator>();
         var animSO = new SerializedObject(procAnim);
@@ -312,6 +293,7 @@ public static class SetupChibiPrefabs
         GameObject root = new GameObject("Hunter");
         root.tag = "Hunter";
         var robeMat = GetMat("Mat_Hunter_Robe") ?? GetMat("Mat_Hunter");
+        var hairMat = GetMat("Mat_Hair");
 
         var cc = root.AddComponent<CharacterController>();
         cc.center = new Vector3(0f, 0.85f, 0f);
@@ -322,17 +304,8 @@ public static class SetupChibiPrefabs
         var ai = root.AddComponent<HunterAI>();
 
         // Sockets
-        GameObject sHead = new GameObject("Socket_Head");
-        sHead.transform.SetParent(root.transform, false);
-        sHead.transform.localPosition = new Vector3(0f, 1.34f, 0.04f);
-
-        GameObject sHandR = new GameObject("Socket_Hand_R");
-        sHandR.transform.SetParent(root.transform, false);
-        sHandR.transform.localPosition = new Vector3(0.44f, 0.88f, 0.65f);
-
-        GameObject sPouch = new GameObject("Socket_Pouch");
-        sPouch.transform.SetParent(root.transform, false);
-        sPouch.transform.localPosition = Vector3.zero;
+        GameObject sHead = CreateSocket(root.transform, "Socket_Head", new Vector3(0f, 1.34f, 0.0f));
+        GameObject sHandR = CreateSocket(root.transform, "Socket_Hand_R", new Vector3(0.23f, 0.82f, 0.48f));
 
         // 1. Attach Body Model: Chibi_Hunter.obj (Áo dài tím)
         GameObject hunterModelAsset = LoadModel("Chibi_Hunter.obj");
@@ -349,10 +322,9 @@ public static class SetupChibiPrefabs
 
         // 2. Solid 3D Chibi Head with Crafty Face
         GameObject headAsset = LoadModel("Chibi_Head.obj");
-        GameObject headGo = null;
         if (headAsset != null)
         {
-            headGo = (GameObject)PrefabUtility.InstantiatePrefab(headAsset, sHead.transform);
+            GameObject headGo = (GameObject)PrefabUtility.InstantiatePrefab(headAsset, sHead.transform);
             headGo.name = "Head";
             headGo.transform.localPosition = Vector3.zero;
             headGo.transform.localRotation = Quaternion.identity;
@@ -361,25 +333,24 @@ public static class SetupChibiPrefabs
             if (hunterFaceMat != null) ApplyMaterial(headGo, hunterFaceMat);
         }
 
-        // 3. Khăn Đóng / Nón on Head
-        GameObject nonLaAsset = LoadModel("NonLa.obj");
-        if (nonLaAsset != null)
+        // 3. Khăn Đóng (Turban) on Head
+        GameObject khanDongAsset = LoadModel("Chibi_KhanDong_Hunter.obj");
+        if (khanDongAsset != null)
         {
-            GameObject nonLaInst = (GameObject)PrefabUtility.InstantiatePrefab(nonLaAsset, sHead.transform);
-            nonLaInst.name = "NonLa";
-            nonLaInst.transform.localPosition = new Vector3(0f, 0.28f, 0f);
-            nonLaInst.transform.localRotation = Quaternion.Euler(10f, 0f, 0f);
-            nonLaInst.transform.localScale = Vector3.one;
+            GameObject turbanInst = (GameObject)PrefabUtility.InstantiatePrefab(khanDongAsset, sHead.transform);
+            turbanInst.name = "KhanDong";
+            turbanInst.transform.localPosition = new Vector3(0f, 0.02f, 0f);
+            turbanInst.transform.localRotation = Quaternion.identity;
+            turbanInst.transform.localScale = Vector3.one;
 
-            var nonLaMat = GetMat("Mat_NonLa");
-            ApplyMaterial(nonLaInst, nonLaMat);
+            if (hairMat != null) ApplyMaterial(turbanInst, hairMat);
         }
 
-        // 5. Medicine Pouch slung around torso
+        // 4. Medicine Pouch slung across chest
         GameObject pouchAsset = LoadModel("MedicinePouch.obj");
         if (pouchAsset != null)
         {
-            GameObject pouchInst = (GameObject)PrefabUtility.InstantiatePrefab(pouchAsset, sPouch.transform);
+            GameObject pouchInst = (GameObject)PrefabUtility.InstantiatePrefab(pouchAsset, root.transform);
             pouchInst.name = "MedicinePouch_3D";
             pouchInst.transform.localPosition = Vector3.zero;
             pouchInst.transform.localRotation = Quaternion.identity;
@@ -389,14 +360,14 @@ public static class SetupChibiPrefabs
             ApplyMaterial(pouchInst, pouchMat);
         }
 
-        // 6. Swipe VFX
+        // 5. Swipe VFX
         GameObject swipeVfx = new GameObject("SwipeVFX");
         swipeVfx.transform.SetParent(sHandR.transform, false);
         swipeVfx.SetActive(false);
 
-        // 7. Foot Sockets & Procedural Stepping Motor
-        GameObject sFootL = AttachFoot(root.transform, "Socket_Foot_L", new Vector3(-0.16f, 0.08f, 0.04f), robeMat);
-        GameObject sFootR = AttachFoot(root.transform, "Socket_Foot_R", new Vector3(0.16f, 0.08f, 0.04f), robeMat);
+        // 6. Foot Sockets & Procedural Stepping Motor
+        GameObject sFootL = CreateSocket(root.transform, "Socket_Foot_L", new Vector3(-0.11f, 0.07f, 0.04f));
+        GameObject sFootR = CreateSocket(root.transform, "Socket_Foot_R", new Vector3(0.11f, 0.07f, 0.04f));
 
         var procAnim = root.AddComponent<ChibiProceduralAnimator>();
         var animSO = new SerializedObject(procAnim);
@@ -428,74 +399,67 @@ public static class SetupChibiPrefabs
         {
             if (rootGo.name.Contains("Mother") || rootGo.name.Contains("Hunter") || rootGo.name.Contains("Child") || 
                 rootGo.name.Contains("Con Út") || rootGo.name.Contains("DauDan") || rootGo.name.Contains("Khuc") || 
-                rootGo.name.Contains("ThayThuoc"))
+                rootGo.name.Contains("ThayThuoc") || rootGo.name.Contains("Showcase_") ||
+                rootGo.name.Contains("Chibi") || rootGo.name.Contains("Pedestal") || rootGo.name.Contains("Showcase_Pedestal"))
             {
                 UnityEngine.Object.DestroyImmediate(rootGo);
             }
         }
 
-        // Instantiate
-        var motherPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabsDir}/Mother.prefab");
-        var childPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabsDir}/Child.prefab");
-        var hunterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabsDir}/Hunter.prefab");
+        GameObject motherPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabsDir}/Mother.prefab");
+        GameObject childPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabsDir}/Child.prefab");
+        GameObject hunterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabsDir}/Hunter.prefab");
 
-        // 1. Người Đứng Đầu (Đầu Đàn)
+        // 1. Rắn Mẹ (X = -3.6)
         if (motherPrefab != null)
         {
-            var m = (GameObject)PrefabUtility.InstantiatePrefab(motherPrefab);
-            m.name = "DauDan (Người Đứng Đầu / Đầu Đàn)";
-            m.transform.position = new Vector3(0f, 0f, 0f);
-            m.transform.rotation = Quaternion.identity;
+            GameObject m = (GameObject)PrefabUtility.InstantiatePrefab(motherPrefab, scene);
+            m.name = "Showcase_Mother";
+            m.transform.position = new Vector3(-3.6f, 0f, 0f);
+            m.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            var mc = m.GetComponent<MotherController>();
+            if (mc != null) UnityEngine.Object.DestroyImmediate(mc);
         }
 
-        // 2. Đoàn Rồng Rắn nối đuôi nhau (Tay chạm và bám chặt lưng/hông bạn đi trước)
+        // 2. Rắn Con (X = -1.2)
         if (childPrefab != null)
         {
-            // Khoảng cách xấp xỉ 0.68m để đôi tay vươn dài (z=0.38) chạm khớp vào lưng bạn phía trước
-            var c1 = (GameObject)PrefabUtility.InstantiatePrefab(childPrefab);
-            c1.name = "KhucThan 1 (Đoàn Rồng Rắn)";
-            c1.transform.position = new Vector3(0f, 0f, -0.68f);
-            var f1 = c1.GetComponent<ChildFollower>();
-            if (f1 != null) f1.Initialize(0, false, null);
-
-            var c2 = (GameObject)PrefabUtility.InstantiatePrefab(childPrefab);
-            c2.name = "KhucThan 2 (Đoàn Rồng Rắn)";
-            c2.transform.position = new Vector3(0f, 0f, -1.36f);
-            var f2 = c2.GetComponent<ChildFollower>();
-            if (f2 != null) f2.Initialize(1, false, null);
-
-            var c3 = (GameObject)PrefabUtility.InstantiatePrefab(childPrefab);
-            c3.name = "KhucDuoi (Bé Út / Con Út)";
-            c3.transform.position = new Vector3(0f, 0f, -2.04f);
-            var f3 = c3.GetComponent<ChildFollower>();
-            if (f3 != null)
-            {
-                f3.Initialize(2, true, null);
-                var conUtMat = GetMat("Mat_ConUt");
-                var body = c3.transform.Find("Model_Body");
-                if (body != null && conUtMat != null) ApplyMaterial(body.gameObject, conUtMat);
-            }
+            GameObject c1 = (GameObject)PrefabUtility.InstantiatePrefab(childPrefab, scene);
+            c1.name = "Showcase_Child_1";
+            c1.transform.position = new Vector3(-1.2f, 0f, 0f);
+            c1.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            var cf = c1.GetComponent<ChildFollower>();
+            if (cf != null) UnityEngine.Object.DestroyImmediate(cf);
         }
 
-        // 3. Thầy Thuốc (Đối diện Đầu Đàn)
+        // 3. Bé Con Út với Vương Miện (X = +1.2)
+        if (childPrefab != null)
+        {
+            GameObject conUt = (GameObject)PrefabUtility.InstantiatePrefab(childPrefab, scene);
+            conUt.name = "Showcase_ConUt_Crown";
+            conUt.transform.position = new Vector3(1.2f, 0f, 0f);
+            conUt.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            var cf = conUt.GetComponent<ChildFollower>();
+            if (cf != null) UnityEngine.Object.DestroyImmediate(cf);
+
+            Transform crown = conUt.transform.Find("Socket_Head/Socket_Crown/Crown_ConUt");
+            if (crown != null) crown.gameObject.SetActive(true);
+        }
+
+        // 4. Thầy Thuốc (X = +3.6)
         if (hunterPrefab != null)
         {
-            var h = (GameObject)PrefabUtility.InstantiatePrefab(hunterPrefab);
-            h.name = "ThayThuoc (Thầy Thuốc)";
-            h.transform.position = new Vector3(0f, 0f, 3.2f);
+            GameObject h = (GameObject)PrefabUtility.InstantiatePrefab(hunterPrefab, scene);
+            h.name = "Showcase_Hunter";
+            h.transform.position = new Vector3(3.6f, 0f, 0f);
             h.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            var ai = h.GetComponent<HunterAI>();
+            if (ai != null) UnityEngine.Object.DestroyImmediate(ai);
         }
 
-        // 4. Căn góc Camera góc nghiêng 3/4 nhìn rõ toàn cảnh đối đầu & khuôn mặt
-        var camGo = GameObject.FindWithTag("MainCamera") ?? GameObject.Find("Main Camera");
-        if (camGo != null)
-        {
-            camGo.transform.position = new Vector3(-3.4f, 1.7f, 0.6f);
-            camGo.transform.LookAt(new Vector3(0f, 0.85f, 0.6f));
-        }
-
+        EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
-        Debug.Log($"[Speckit 001] Updated Showcase scene with full faces and accessories: {scenePath}");
+        Debug.Log("[Speckit 001] Updated Showcase scene: Assets/_Game/Scenes/Character_Showcase.unity");
     }
 }
 #endif

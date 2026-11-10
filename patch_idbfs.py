@@ -14,3 +14,4 @@ if target in content:
     print("SUCCESS: Patched IDBFS polyfill in WebGL_Netlify.framework.js")
 else:
     print("Target already patched or not found")
+
