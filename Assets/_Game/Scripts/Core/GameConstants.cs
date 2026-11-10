@@ -27,8 +27,11 @@ namespace RongRanChamCham
         public const float CentrifugalWhipMultiplier = 1.15f;
 
         // Match Settings
-        public const int ConUtMaxHealth = 3;
-        public const float ChaseRoundDuration = 45.0f;
+        public const float MaxHearts = 3.0f;
+        public const float HeartLossOnWin = 0.5f;
+        public const float ChaseRoundDuration = 60.0f;
         public const float BuffDuration = 7.0f;
+        public const float CloneDuration = 5.0f;
+        public const float CloneFadeDelay = 2.0f;
     }
 }

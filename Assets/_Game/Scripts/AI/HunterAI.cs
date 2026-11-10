@@ -145,7 +145,17 @@ namespace RongRanChamCham
                 if (controller.isGrounded) verticalVelocity = -4f;
                 else verticalVelocity += Physics.gravity.y * Time.deltaTime * 2f;
 
-                Vector3 moveDelta = moveDir * MoveSpeed;
+                // Apply movement with buffs
+                float currentSpeed = MoveSpeed;
+                if (BuffSystem.Instance != null)
+                {
+                    if (BuffSystem.Instance.IsHunterSpeedActive) currentSpeed *= 1.35f;
+
+                    float targetScale = BuffSystem.Instance.IsHunterGiantActive ? 1.30f : 1.0f;
+                    transform.localScale = Vector3.Lerp(transform.localScale, Vector3.one * targetScale, Time.deltaTime * 6f);
+                }
+
+                Vector3 moveDelta = moveDir * currentSpeed;
                 moveDelta.y = verticalVelocity;
                 controller.Move(moveDelta * Time.deltaTime);
             }
@@ -183,12 +193,35 @@ namespace RongRanChamCham
             grabWindupTimer -= Time.deltaTime;
             if (grabWindupTimer <= 0f)
             {
-                // Grab resolution
+                // Grab resolution with Shields & Giant reach
                 float distToTarget = conUtTarget != null ? Vector3.Distance(transform.position, conUtTarget.transform.position) : 999f;
-                if (distToTarget <= GrabRange)
+                float currentGrabRange = GrabRange;
+                if (BuffSystem.Instance != null && BuffSystem.Instance.IsHunterGiantActive)
                 {
-                    // Success!
-                    OnCaughtConUt?.Invoke();
+                    currentGrabRange *= 1.30f;
+                }
+
+                bool hunterHasPierce = BuffSystem.Instance != null && BuffSystem.Instance.HunterPierceShield;
+                bool snakeHasShield = BuffSystem.Instance != null && BuffSystem.Instance.SnakeHasShield;
+
+                if (distToTarget <= currentGrabRange)
+                {
+                    if (snakeHasShield && !hunterHasPierce)
+                    {
+                        // Shield absorbs hit
+                        BuffSystem.Instance.ConsumeSnakeShield();
+                        Debug.Log("[HunterAI] Lá chắn Bánh Mì của Rồng Rắn đã chặn đứng đòn vồ của Thầy Thuốc!");
+                    }
+                    else
+                    {
+                        if (snakeHasShield && hunterHasPierce)
+                        {
+                            BuffSystem.Instance.ConsumeSnakeShield();
+                            Debug.Log("[HunterAI] Thầy Thuốc vồ XUYÊN LÁ CHẮN nhờ hiệu ứng Bánh Mì!");
+                        }
+                        // Grab success!
+                        OnCaughtConUt?.Invoke();
+                    }
                 }
 
                 // Cooldown

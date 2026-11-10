@@ -42,12 +42,18 @@ namespace RongRanChamCham
         public float centrifugalWhipMultiplier = GameConstants.CentrifugalWhipMultiplier;
 
         [Header("Trận Đấu & Match Rules")]
-        [Tooltip("Số mạng của Con Út")]
-        public int conUtMaxHealth = GameConstants.ConUtMaxHealth;
-        [Tooltip("Thời gian một hiệp rượt đuổi (seconds)")]
+        [Tooltip("Tổng số tim ban đầu của Rồng Rắn")]
+        public float maxHearts = GameConstants.MaxHearts;
+        [Tooltip("Số tim bị trừ khi thắng Chăm Chăm Chăm")]
+        public float heartLossOnWin = GameConstants.HeartLossOnWin;
+        [Tooltip("Thời gian một trận đấu (seconds)")]
         public float chaseRoundDuration = GameConstants.ChaseRoundDuration;
         [Tooltip("Thời lượng của Buff thức ăn (seconds)")]
         public float buffDuration = GameConstants.BuffDuration;
+        [Tooltip("Thời lượng phân thân Bánh Gạo Cay (seconds)")]
+        public float cloneDuration = GameConstants.CloneDuration;
+        [Tooltip("Thời gian sau khi phân thân thì làm mờ (seconds)")]
+        public float cloneFadeDelay = GameConstants.CloneFadeDelay;
     }
 }
 

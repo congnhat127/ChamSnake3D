@@ -21,6 +21,39 @@ namespace RongRanChamCham
         private bool isInitialized = false;
 
         public ChildFollower ConUt => (children != null && children.Count > 0) ? children[children.Count - 1] : null;
+        public int RemainingChildrenCount => children != null ? children.Count : 0;
+
+        public bool RemoveTailChild()
+        {
+            if (children == null || children.Count == 0) return false;
+
+            int lastIdx = children.Count - 1;
+            var childToRemove = children[lastIdx];
+            children.RemoveAt(lastIdx);
+
+            if (nodePositions != null && nodePositions.Count > children.Count + 1)
+            {
+                nodePositions.RemoveAt(nodePositions.Count - 1);
+                nodeVelocities.RemoveAt(nodeVelocities.Count - 1);
+            }
+
+            if (childToRemove != null)
+            {
+                childToRemove.gameObject.SetActive(false);
+            }
+
+            // Designate new Con Út if any children remain
+            if (children.Count > 0)
+            {
+                var newConUt = children[children.Count - 1];
+                if (newConUt != null)
+                {
+                    newConUt.Initialize(children.Count - 1, true, null);
+                }
+            }
+
+            return true;
+        }
 
         private float FollowSpeed => balanceConfig != null ? balanceConfig.chainFollowSpeed : GameConstants.ChainFollowSpeed;
         private float CentrifugalWhipMultiplier => balanceConfig != null ? balanceConfig.centrifugalWhipMultiplier : GameConstants.CentrifugalWhipMultiplier;

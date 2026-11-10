@@ -105,6 +105,18 @@ namespace RongRanChamCham
             Vector3 moveDirection = new Vector3(input.x, 0f, input.y);
             float effectiveSpeed = isLocked ? StrafeSpeed : NormalSpeed;
 
+            // Apply Food Buffs
+            if (BuffSystem.Instance != null)
+            {
+                if (BuffSystem.Instance.IsSnakeSpeedActive)
+                {
+                    effectiveSpeed *= 1.35f;
+                }
+
+                float targetScale = BuffSystem.Instance.IsSnakeGiantActive ? 1.30f : 1.0f;
+                transform.localScale = Vector3.Lerp(transform.localScale, Vector3.one * targetScale, Time.deltaTime * 6f);
+            }
+
             // 1. Rotation Logic
             if (isLocked)
             {

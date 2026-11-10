@@ -12,10 +12,10 @@ namespace RongRanChamCham
 
     public enum FoodType
     {
-        BanhMi,     // 🥖 Golden Shield (Immunity 7s)
-        Pho,        // 🍜 Heal Con Út + Shield
-        Kimbap,     // 🍙 Super Speed Boost (+35%)
-        Kimchi      // 🥬 Giant Size (+40% scale/reach)
+        BanhMi,     // 🥖 Shield 1-hit for Snake / Pierce Shield for Hunter (7s)
+        Pho,        // 🍜 Super Speed Boost (+35%) for 7s
+        Kimbap,     // 🍙 Giant Size (+30% scale/reach) for 7s
+        Tteokbokki  // 🥘 Decoy Clone (5s duration, fades after 2s, rare 10%)
     }
 
     public enum DuelDirection

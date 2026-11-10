@@ -6,24 +6,19 @@ namespace RongRanChamCham
     {
         [Header("Food Configuration")]
         [SerializeField] private FoodType foodType;
-        [SerializeField] private SpriteRenderer spriteRenderer;
 
         [Header("Animation")]
-        [SerializeField] private float rotateSpeed = 80f;
-        [SerializeField] private float bobFrequency = 2.5f;
-        [SerializeField] private float bobAmplitude = 0.25f;
+        [SerializeField] private float rotateSpeed = 65f;
+        [SerializeField] private float bobFrequency = 2.0f;
+        [SerializeField] private float bobAmplitude = 0.12f;
 
         private Vector3 startPosition;
 
         public FoodType Type => foodType;
 
-        public void Initialize(FoodType type, Sprite sprite)
+        public void Initialize(FoodType type)
         {
             foodType = type;
-            if (spriteRenderer != null && sprite != null)
-            {
-                spriteRenderer.sprite = sprite;
-            }
         }
 
         private void Start()
@@ -33,26 +28,36 @@ namespace RongRanChamCham
 
         private void Update()
         {
-            // Rotate continuously
+            // Rotate smoothly around Y axis
             transform.Rotate(Vector3.up, rotateSpeed * Time.deltaTime, Space.World);
 
-            // Bob up and down gently
+            // Gentle floating bob
             float newY = startPosition.y + Mathf.Sin(Time.time * bobFrequency) * bobAmplitude;
             transform.position = new Vector3(transform.position.x, newY, transform.position.z);
         }
 
         private void OnTriggerEnter(Collider other)
         {
-            // Mother or Children can collect the food
+            // Case 1: Snake picks up food (Mother or any Child)
             if (other.CompareTag("Player") || other.GetComponent<MotherController>() != null || other.GetComponent<ChildFollower>() != null)
             {
                 if (BuffSystem.Instance != null)
                 {
-                    BuffSystem.Instance.ApplyBuff(foodType);
+                    BuffSystem.Instance.ApplyBuff(foodType, true);
                 }
-
-                // TODO: Play pickup SFX & spawn sparkle particles
                 Destroy(gameObject);
+                return;
+            }
+
+            // Case 2: Hunter picks up food (Thầy Thuốc)
+            if (other.GetComponent<HunterAI>() != null)
+            {
+                if (BuffSystem.Instance != null)
+                {
+                    BuffSystem.Instance.ApplyBuff(foodType, false);
+                }
+                Destroy(gameObject);
+                return;
             }
         }
     }

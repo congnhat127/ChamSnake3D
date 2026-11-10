@@ -124,11 +124,11 @@ public static class SetupChibiPrefabs
 
         GameObject sHandL = new GameObject("Socket_Hand_L");
         sHandL.transform.SetParent(root.transform, false);
-        sHandL.transform.localPosition = new Vector3(-1.40f, 0.88f, 0.12f);
+        sHandL.transform.localPosition = new Vector3(-1.40f, 0.84f, 0.20f);
 
         GameObject sHandR = new GameObject("Socket_Hand_R");
         sHandR.transform.SetParent(root.transform, false);
-        sHandR.transform.localPosition = new Vector3(1.40f, 0.88f, 0.12f);
+        sHandR.transform.localPosition = new Vector3(1.40f, 0.84f, 0.20f);
 
         // 4. Attach Body Model: Chibi_Mother.obj (Áo bà ba & curved embracing arms)
         GameObject motherModelAsset = LoadModel("Chibi_Mother.obj");

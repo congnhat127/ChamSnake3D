@@ -7,17 +7,29 @@ namespace RongRanChamCham
     {
         public static BuffSystem Instance { get; private set; }
 
-        public event Action<FoodType, float> OnBuffActivated;
-        public event Action<FoodType> OnBuffExpired;
-        public event Action<int> OnConUtHealed;
+        public event Action<FoodType, bool> OnBuffApplied; // (foodType, isSnake)
+        public event Action<FoodType, bool> OnBuffExpired;
 
-        [Header("Active Status")]
-        public bool IsShieldActive { get; private set; }
-        public bool IsSpeedActive { get; private set; }
-        public bool IsGiantActive { get; private set; }
+        [Header("Snake Active Buffs")]
+        public bool SnakeHasShield { get; private set; }
+        public float SnakeSpeedTimer { get; private set; }
+        public float SnakeGiantTimer { get; private set; }
+        public float SnakeCloneTimer { get; private set; }
 
-        public float RemainingBuffTime { get; private set; }
-        public FoodType? CurrentBuffType { get; private set; }
+        [Header("Hunter Active Buffs")]
+        public bool HunterPierceShield { get; private set; }
+        public float HunterPierceTimer { get; private set; }
+        public float HunterSpeedTimer { get; private set; }
+        public float HunterGiantTimer { get; private set; }
+        public float HunterCloneTimer { get; private set; }
+
+        public bool IsSnakeSpeedActive => SnakeSpeedTimer > 0f;
+        public bool IsSnakeGiantActive => SnakeGiantTimer > 0f;
+        public bool IsSnakeCloneActive => SnakeCloneTimer > 0f;
+
+        public bool IsHunterSpeedActive => HunterSpeedTimer > 0f;
+        public bool IsHunterGiantActive => HunterGiantTimer > 0f;
+        public bool IsHunterCloneActive => HunterCloneTimer > 0f;
 
         private void Awake()
         {
@@ -31,57 +43,113 @@ namespace RongRanChamCham
 
         private void Update()
         {
-            if (RemainingBuffTime > 0)
+            float dt = Time.deltaTime;
+
+            // Snake timers
+            if (SnakeSpeedTimer > 0f)
             {
-                RemainingBuffTime -= Time.deltaTime;
-                if (RemainingBuffTime <= 0)
+                SnakeSpeedTimer -= dt;
+                if (SnakeSpeedTimer <= 0f) OnBuffExpired?.Invoke(FoodType.Pho, true);
+            }
+            if (SnakeGiantTimer > 0f)
+            {
+                SnakeGiantTimer -= dt;
+                if (SnakeGiantTimer <= 0f) OnBuffExpired?.Invoke(FoodType.Kimbap, true);
+            }
+            if (SnakeCloneTimer > 0f)
+            {
+                SnakeCloneTimer -= dt;
+                if (SnakeCloneTimer <= 0f) OnBuffExpired?.Invoke(FoodType.Tteokbokki, true);
+            }
+
+            // Hunter timers
+            if (HunterPierceTimer > 0f)
+            {
+                HunterPierceTimer -= dt;
+                if (HunterPierceTimer <= 0f)
                 {
-                    ExpireCurrentBuff();
+                    HunterPierceShield = false;
+                    OnBuffExpired?.Invoke(FoodType.BanhMi, false);
                 }
             }
-        }
-
-        public void ApplyBuff(FoodType type)
-        {
-            CurrentBuffType = type;
-            RemainingBuffTime = GameConstants.BuffDuration;
-
-            switch (type)
+            if (HunterSpeedTimer > 0f)
             {
-                case FoodType.BanhMi:
-                    IsShieldActive = true;
-                    break;
-
-                case FoodType.Pho:
-                    IsShieldActive = true;
-                    OnConUtHealed?.Invoke(1);
-                    break;
-
-                case FoodType.Kimbap:
-                    IsSpeedActive = true;
-                    break;
-
-                case FoodType.Kimchi:
-                    IsGiantActive = true;
-                    break;
+                HunterSpeedTimer -= dt;
+                if (HunterSpeedTimer <= 0f) OnBuffExpired?.Invoke(FoodType.Pho, false);
             }
-
-            OnBuffActivated?.Invoke(type, GameConstants.BuffDuration);
-            Debug.Log($"[BuffSystem] Activated {type} for {GameConstants.BuffDuration}s!");
+            if (HunterGiantTimer > 0f)
+            {
+                HunterGiantTimer -= dt;
+                if (HunterGiantTimer <= 0f) OnBuffExpired?.Invoke(FoodType.Kimbap, false);
+            }
+            if (HunterCloneTimer > 0f)
+            {
+                HunterCloneTimer -= dt;
+                if (HunterCloneTimer <= 0f) OnBuffExpired?.Invoke(FoodType.Tteokbokki, false);
+            }
         }
 
-        private void ExpireCurrentBuff()
+        public void ConsumeSnakeShield()
         {
-            if (CurrentBuffType.HasValue)
+            if (SnakeHasShield)
             {
-                var expired = CurrentBuffType.Value;
-                IsShieldActive = false;
-                IsSpeedActive = false;
-                IsGiantActive = false;
-                CurrentBuffType = null;
-                RemainingBuffTime = 0f;
-                OnBuffExpired?.Invoke(expired);
-                Debug.Log($"[BuffSystem] Buff {expired} expired.");
+                SnakeHasShield = false;
+                Debug.Log("[BuffSystem] Khiên Bánh Mì của Rồng Rắn đã vỡ (đỡ thành công 1 đòn vồ)!");
+                OnBuffExpired?.Invoke(FoodType.BanhMi, true);
+            }
+        }
+
+        public void ApplyBuff(FoodType type, bool isSnake)
+        {
+            float normalDuration = GameConstants.BuffDuration;
+            float cloneDuration = GameConstants.CloneDuration;
+
+            if (isSnake)
+            {
+                switch (type)
+                {
+                    case FoodType.BanhMi:
+                        SnakeHasShield = true;
+                        Debug.Log("[BuffSystem] Rồng Rắn nhận LÁ CHẮN BÁNH MÌ (đỡ 1 lần vồ)!");
+                        break;
+                    case FoodType.Pho:
+                        SnakeSpeedTimer = normalDuration;
+                        Debug.Log($"[BuffSystem] Rồng Rắn ăn PHỞ: Tăng tốc +35% trong {normalDuration}s!");
+                        break;
+                    case FoodType.Kimbap:
+                        SnakeGiantTimer = normalDuration;
+                        Debug.Log($"[BuffSystem] Rồng Rắn ăn CƠM CUỘN: Tăng kích thước +30% trong {normalDuration}s!");
+                        break;
+                    case FoodType.Tteokbokki:
+                        SnakeCloneTimer = cloneDuration;
+                        Debug.Log($"[BuffSystem] Rồng Rắn ăn BÁNH GẠO CAY: Tạo PHÂN THÂN trong {cloneDuration}s!");
+                        break;
+                }
+                OnBuffApplied?.Invoke(type, true);
+            }
+            else
+            {
+                switch (type)
+                {
+                    case FoodType.BanhMi:
+                        HunterPierceShield = true;
+                        HunterPierceTimer = normalDuration;
+                        Debug.Log($"[BuffSystem] Thầy Thuốc ăn BÁNH MÌ: VỒ XUYÊN KHIÊN trong {normalDuration}s!");
+                        break;
+                    case FoodType.Pho:
+                        HunterSpeedTimer = normalDuration;
+                        Debug.Log($"[BuffSystem] Thầy Thuốc ăn PHỞ: Tăng tốc +35% trong {normalDuration}s!");
+                        break;
+                    case FoodType.Kimbap:
+                        HunterGiantTimer = normalDuration;
+                        Debug.Log($"[BuffSystem] Thầy Thuốc ăn CƠM CUỘN: Tăng kích thước +30% trong {normalDuration}s!");
+                        break;
+                    case FoodType.Tteokbokki:
+                        HunterCloneTimer = cloneDuration;
+                        Debug.Log($"[BuffSystem] Thầy Thuốc ăn BÁNH GẠO CAY: Tạo PHÂN THÂN trong {cloneDuration}s!");
+                        break;
+                }
+                OnBuffApplied?.Invoke(type, false);
             }
         }
     }

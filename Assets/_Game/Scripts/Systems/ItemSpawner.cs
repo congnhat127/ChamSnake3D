@@ -5,11 +5,11 @@ namespace RongRanChamCham
 {
     public class ItemSpawner : MonoBehaviour
     {
-        [Header("Item Sprites")]
-        [SerializeField] private Sprite banhMiSprite;
-        [SerializeField] private Sprite phoSprite;
-        [SerializeField] private Sprite kimbapSprite;
-        [SerializeField] private Sprite kimchiSprite;
+        [Header("Food Prefabs")]
+        [SerializeField] private GameObject banhMiPrefab;
+        [SerializeField] private GameObject phoPrefab;
+        [SerializeField] private GameObject kimbapPrefab;
+        [SerializeField] private GameObject tteokbokkiPrefab;
 
         [Header("Spawn Settings")]
         [SerializeField] private int maxItemsOnField = 2;
@@ -30,7 +30,6 @@ namespace RongRanChamCham
 
         private void Update()
         {
-            // Clean up nulls
             activeItems.RemoveAll(item => item == null);
 
             if (activeItems.Count < maxItemsOnField && Time.time >= nextSpawnTime)
@@ -42,38 +41,62 @@ namespace RongRanChamCham
 
         public void SpawnRandomFood()
         {
-            FoodType type = (FoodType)Random.Range(0, 4);
-            Sprite spriteToUse = null;
+            // Weighted Random Probability:
+            // Banh Mi: 35% (0.00 - 0.35)
+            // Pho: 35% (0.35 - 0.70)
+            // Kimbap: 20% (0.70 - 0.90)
+            // Tteokbokki: 10% (0.90 - 1.00)
+            float roll = Random.value;
+            FoodType chosenType;
+            GameObject prefabToSpawn = null;
 
-            switch (type)
+            if (roll < 0.35f)
             {
-                case FoodType.BanhMi: spriteToUse = banhMiSprite; break;
-                case FoodType.Pho: spriteToUse = phoSprite; break;
-                case FoodType.Kimbap: spriteToUse = kimbapSprite; break;
-                case FoodType.Kimchi: spriteToUse = kimchiSprite; break;
+                chosenType = FoodType.BanhMi;
+                prefabToSpawn = banhMiPrefab;
+            }
+            else if (roll < 0.70f)
+            {
+                chosenType = FoodType.Pho;
+                prefabToSpawn = phoPrefab;
+            }
+            else if (roll < 0.90f)
+            {
+                chosenType = FoodType.Kimbap;
+                prefabToSpawn = kimbapPrefab;
+            }
+            else
+            {
+                chosenType = FoodType.Tteokbokki;
+                prefabToSpawn = tteokbokkiPrefab;
             }
 
-            // Random position in circle
+            // Spawn Position in Arena Circle
             float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
             float r = Random.Range(minSpawnRadius, maxSpawnRadius);
-            Vector3 spawnPos = new Vector3(Mathf.Cos(angle) * r, 0.8f, Mathf.Sin(angle) * r);
+            Vector3 spawnPos = new Vector3(Mathf.Cos(angle) * r, 0.45f, Mathf.Sin(angle) * r);
 
-            // Create GameObject
-            var itemGo = new GameObject($"Pickup_{type}");
-            itemGo.transform.position = spawnPos;
+            GameObject itemGo = null;
+            if (prefabToSpawn != null)
+            {
+                itemGo = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity);
+            }
+            else
+            {
+                // Fallback: create token runtime
+                itemGo = new GameObject($"Pickup_{chosenType}");
+                itemGo.transform.position = spawnPos;
+                var col = itemGo.AddComponent<SphereCollider>();
+                col.isTrigger = true;
+                col.radius = 0.45f;
+                var pickup = itemGo.AddComponent<FoodPickup>();
+                pickup.Initialize(chosenType);
+            }
 
-            var collider = itemGo.AddComponent<SphereCollider>();
-            collider.isTrigger = true;
-            collider.radius = 0.8f;
-
-            var sr = itemGo.AddComponent<SpriteRenderer>();
-            sr.sprite = spriteToUse;
-            itemGo.transform.localScale = Vector3.one * 0.7f;
-
-            var pickup = itemGo.AddComponent<FoodPickup>();
-            pickup.Initialize(type, spriteToUse);
-
-            activeItems.Add(itemGo);
+            if (itemGo != null)
+            {
+                activeItems.Add(itemGo);
+            }
         }
     }
 }
