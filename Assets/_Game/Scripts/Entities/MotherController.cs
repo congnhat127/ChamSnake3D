@@ -78,6 +78,11 @@ namespace RongRanChamCham
 
         private void Update()
         {
+            if (GameManager.Instance != null && GameManager.Instance.CurrentState != GameState.Chasing)
+            {
+                return;
+            }
+
             EnsureHunterTarget();
             HandleMovement();
             HandleShoveHunter();

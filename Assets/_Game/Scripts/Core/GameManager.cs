@@ -37,9 +37,29 @@ namespace RongRanChamCham
             Instance = this;
         }
 
+        public MotherController Mother => mother;
+        public HunterAI Hunter => hunter;
+        public SnakeChainIK SnakeChain => snakeChain;
+        public CameraFollow CamFollow => cameraFollow;
+
         private void Start()
         {
-            StartMatch();
+            ShowMainMenu();
+        }
+
+        public void ShowMainMenu()
+        {
+            currentState = GameState.MainMenu;
+            if (cameraFollow != null)
+            {
+                cameraFollow.SetShowcaseMode(false);
+                cameraFollow.SetDuelMode(false);
+            }
+        }
+
+        public void OpenShowcase()
+        {
+            currentState = GameState.Showcase;
         }
 
         public void StartMatch()
@@ -48,13 +68,21 @@ namespace RongRanChamCham
             matchTimer = GameConstants.ChaseRoundDuration;
             currentState = GameState.Chasing;
 
+            if (cameraFollow != null)
+            {
+                cameraFollow.SetShowcaseMode(false);
+                cameraFollow.SetDuelMode(false);
+            }
+
             if (hunter != null)
             {
+                hunter.OnCaughtConUt -= HandleConUtCaught;
                 hunter.OnCaughtConUt += HandleConUtCaught;
             }
 
             if (duelManager != null)
             {
+                duelManager.OnDuelFinished -= HandleDuelFinished;
                 duelManager.OnDuelFinished += HandleDuelFinished;
             }
 

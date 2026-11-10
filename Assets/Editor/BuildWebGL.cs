@@ -80,6 +80,19 @@ public static class BuildWebGL
                 }
             }
 
+            string indexHtml = Path.Combine(OutputDir, "index.html");
+            if (File.Exists(indexHtml))
+            {
+                string html = File.ReadAllText(indexHtml);
+                string scriptTag = "<script>";
+                string polyfillScript = "<script>\n      if (typeof window.IDBFS === \"undefined\") {\n        window.IDBFS = {\n          mount: function(m) { return (typeof MEMFS !== \"undefined\") ? MEMFS.mount(m) : m; },\n          syncfs: function(m, p, c) { if (c) c(null); },\n          queuePersist: function(m) {}\n        };\n      }";
+                if (html.Contains(scriptTag) && !html.Contains("window.IDBFS"))
+                {
+                    html = html.Replace(scriptTag, polyfillScript);
+                    File.WriteAllText(indexHtml, html);
+                }
+            }
+
             Debug.Log($"[BuildWebGL] Ready for Netlify Drop! Folder: {Path.GetFullPath(OutputDir)}");
         }
         else if (summary.result == BuildResult.Failed)

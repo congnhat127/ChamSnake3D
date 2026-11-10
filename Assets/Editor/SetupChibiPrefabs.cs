@@ -30,6 +30,16 @@ public static class SetupChibiPrefabs
         UpdateShowcaseScene();
 
         AssetDatabase.SaveAssets();
+
+        try
+        {
+            RenderCharacterSnapshots.Execute();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[SetupChibiPrefabs] RenderCharacterSnapshots error: {ex}");
+        }
+
         Debug.Log("[Speckit 001] Complete! Characters now have expressive faces, eyes, and traditional accessories!");
     }
 

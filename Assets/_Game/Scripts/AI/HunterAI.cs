@@ -86,6 +86,11 @@ namespace RongRanChamCham
 
         private void Update()
         {
+            if (GameManager.Instance != null && GameManager.Instance.CurrentState != GameState.Chasing)
+            {
+                return;
+            }
+
             EnsureTargets();
 
             // 1. Handle Stun / Windup Cooldowns

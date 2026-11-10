@@ -87,6 +87,19 @@ public static class UnityMcpBridge
             }
         }
 
+        if (File.Exists("Temp/trigger_render_snapshots.tmp"))
+        {
+            try
+            {
+                File.Delete("Temp/trigger_render_snapshots.tmp");
+                RenderCharacterSnapshots.Execute();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
         if (isRunning) return;
         if (EditorApplication.timeSinceStartup - lastCheckTime < 2.0) return;
         lastCheckTime = EditorApplication.timeSinceStartup;
@@ -376,6 +389,22 @@ public static class UnityMcpBridge
                     catch (Exception ex)
                     {
                         SendJsonResponse(res, new { error = ex.Message }, 500);
+                    }
+                };
+                break;
+
+            case "render_snapshots":
+                EditorApplication.delayCall += () =>
+                {
+                    try
+                    {
+                        RenderCharacterSnapshots.Execute();
+                        SendJsonResponse(res, new { status = "success", message = "All character snapshots rendered successfully!" });
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogException(ex);
+                        SendJsonResponse(res, new { status = "error", message = ex.Message }, 500);
                     }
                 };
                 break;

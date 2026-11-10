@@ -2,6 +2,8 @@ namespace RongRanChamCham
 {
     public enum GameState
     {
+        MainMenu,
+        Showcase,
         Ready,
         Chasing,
         Duel,

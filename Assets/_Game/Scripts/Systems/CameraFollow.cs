@@ -54,6 +54,16 @@ namespace RongRanChamCham
             }
         }
 
+        [Header("Showcase Mode")]
+        [SerializeField] private bool isShowcaseMode = false;
+        [SerializeField] private Transform showcaseTarget;
+
+        public void SetShowcaseMode(bool enabled, Transform focusTarget = null)
+        {
+            isShowcaseMode = enabled;
+            showcaseTarget = focusTarget;
+        }
+
         public void SetDuelMode(bool enabled, Vector3? customPos = null, Quaternion? customRot = null)
         {
             isDuelMode = enabled;
@@ -64,6 +74,16 @@ namespace RongRanChamCham
         private void LateUpdate()
         {
             EnsureTargets();
+
+            if (isShowcaseMode && showcaseTarget != null)
+            {
+                Vector3 targetPos = showcaseTarget.position + new Vector3(0f, 1.15f, -2.6f);
+                transform.position = Vector3.Lerp(transform.position, targetPos, Time.deltaTime * 6f);
+                Vector3 lookTarget = showcaseTarget.position + Vector3.up * 0.85f;
+                Quaternion targetRot = Quaternion.LookRotation(lookTarget - transform.position);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 6f);
+                return;
+            }
 
             if (isDuelMode)
             {
