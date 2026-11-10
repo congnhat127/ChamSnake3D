@@ -26,6 +26,9 @@ MonoBehaviour:
   chainFollowSpeed: 18
   chainMaxStretch: 1.2
   centrifugalWhipMultiplier: 1.15
-  conUtMaxHealth: 3
-  chaseRoundDuration: 45
+  maxHearts: 3
+  heartLossOnWin: 0.5
+  chaseRoundDuration: 60
   buffDuration: 7
+  cloneDuration: 5
+  cloneFadeDelay: 2

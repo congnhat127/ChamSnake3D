@@ -74,6 +74,19 @@ public static class UnityMcpBridge
             }
         }
 
+        if (File.Exists("Temp/trigger_build_webgl.tmp"))
+        {
+            try
+            {
+                File.Delete("Temp/trigger_build_webgl.tmp");
+                BuildWebGL.Execute();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
         if (isRunning) return;
         if (EditorApplication.timeSinceStartup - lastCheckTime < 2.0) return;
         lastCheckTime = EditorApplication.timeSinceStartup;
