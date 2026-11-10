@@ -45,11 +45,29 @@ namespace RongRanChamCham
                 resultMsgTimer -= Time.deltaTime;
             }
 
+            UpdateShowcaseVisibility();
+
             // In Showcase mode, handle character rotation & camera focus
             if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.Showcase)
             {
                 HandleShowcaseInteraction();
             }
+        }
+
+        private void UpdateShowcaseVisibility()
+        {
+            if (GameManager.Instance == null) return;
+
+            bool isShowcase = GameManager.Instance.CurrentState == GameState.Showcase;
+
+            if (GameManager.Instance.Mother != null)
+                GameManager.Instance.Mother.gameObject.SetActive(!isShowcase || showcaseIndex == 0);
+
+            if (GameManager.Instance.SnakeChain != null)
+                GameManager.Instance.SnakeChain.gameObject.SetActive(!isShowcase || showcaseIndex == 1);
+
+            if (GameManager.Instance.Hunter != null)
+                GameManager.Instance.Hunter.gameObject.SetActive(!isShowcase || showcaseIndex == 2);
         }
 
         private void HandleShowcaseInteraction()

@@ -153,27 +153,27 @@ public static class SetupChibiPrefabs
             ApplyMaterial(modelInst, motherMat);
         }
 
-        // 5. Head (Skin tone sphere on Socket_Head)
-        GameObject headGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        headGo.name = "Head";
-        headGo.transform.SetParent(sHead.transform, false);
-        headGo.transform.localPosition = Vector3.zero;
-        headGo.transform.localScale = new Vector3(0.68f, 0.68f, 0.64f);
-        UnityEngine.Object.DestroyImmediate(headGo.GetComponent<Collider>());
-        var skinMat = GetMat("Mat_Skin");
-        if (skinMat != null) headGo.GetComponent<Renderer>().sharedMaterial = skinMat;
+        // 5. Solid 3D Chibi Head with Expressive Face
+        GameObject headAsset = LoadModel("Chibi_Head.obj");
+        GameObject headGo = null;
+        if (headAsset != null)
+        {
+            headGo = (GameObject)PrefabUtility.InstantiatePrefab(headAsset, sHead.transform);
+            headGo.name = "Head";
+            headGo.transform.localPosition = Vector3.zero;
+            headGo.transform.localRotation = Quaternion.identity;
+            headGo.transform.localScale = Vector3.one;
+            var faceMat = GetMat("Mat_Mother_Face");
+            if (faceMat != null) ApplyMaterial(headGo, faceMat);
+        }
 
-        // 6. Face Decal with Eyes & Rosy Cheeks
-        var faceMat = GetMat("Mat_Mother_Face");
-        AttachFace(headGo.transform, faceMat);
-
-        // 7. Nón Lá on head
+        // 6. Nón Lá on head
         GameObject nonLaAsset = LoadModel("NonLa.obj");
         if (nonLaAsset != null)
         {
             GameObject nonLaInst = (GameObject)PrefabUtility.InstantiatePrefab(nonLaAsset, sHead.transform);
             nonLaInst.name = "NonLa";
-            nonLaInst.transform.localPosition = new Vector3(0f, 0.22f, 0f);
+            nonLaInst.transform.localPosition = new Vector3(0f, 0.28f, 0f);
             nonLaInst.transform.localRotation = Quaternion.Euler(6f, 0f, 0f);
             nonLaInst.transform.localScale = Vector3.one;
 
@@ -250,19 +250,19 @@ public static class SetupChibiPrefabs
             bodyRend = modelInst.GetComponentInChildren<Renderer>();
         }
 
-        // 2. Head with Skin tone
-        GameObject headGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        headGo.name = "Head";
-        headGo.transform.SetParent(sHead.transform, false);
-        headGo.transform.localPosition = Vector3.zero;
-        headGo.transform.localScale = new Vector3(0.60f, 0.60f, 0.56f);
-        UnityEngine.Object.DestroyImmediate(headGo.GetComponent<Collider>());
-        var skinMat = GetMat("Mat_Skin");
-        if (skinMat != null) headGo.GetComponent<Renderer>().sharedMaterial = skinMat;
-
-        // 3. Face Decal with Big Anime Eyes & Rosy Cheeks
-        var childFaceMat = GetMat("Mat_Child_Face");
-        AttachFace(headGo.transform, childFaceMat);
+        // 2. Solid 3D Chibi Head with Cute Anime Face
+        GameObject headAsset = LoadModel("Chibi_Head.obj");
+        GameObject headGo = null;
+        if (headAsset != null)
+        {
+            headGo = (GameObject)PrefabUtility.InstantiatePrefab(headAsset, sHead.transform);
+            headGo.name = "Head";
+            headGo.transform.localPosition = Vector3.zero;
+            headGo.transform.localRotation = Quaternion.identity;
+            headGo.transform.localScale = new Vector3(0.82f, 0.82f, 0.82f);
+            var childFaceMat = GetMat("Mat_Child_Face");
+            if (childFaceMat != null) ApplyMaterial(headGo, childFaceMat);
+        }
 
         // 4. Crown on Socket_Crown (for Con Út)
         GameObject crownAsset = LoadModel("Crown_ConUt.obj");
@@ -347,27 +347,27 @@ public static class SetupChibiPrefabs
             ApplyMaterial(modelInst, robeMat);
         }
 
-        // 2. Head with Skin tone
-        GameObject headGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        headGo.name = "Head";
-        headGo.transform.SetParent(sHead.transform, false);
-        headGo.transform.localPosition = Vector3.zero;
-        headGo.transform.localScale = new Vector3(0.64f, 0.64f, 0.60f);
-        UnityEngine.Object.DestroyImmediate(headGo.GetComponent<Collider>());
-        var skinMat = GetMat("Mat_Skin");
-        if (skinMat != null) headGo.GetComponent<Renderer>().sharedMaterial = skinMat;
+        // 2. Solid 3D Chibi Head with Crafty Face
+        GameObject headAsset = LoadModel("Chibi_Head.obj");
+        GameObject headGo = null;
+        if (headAsset != null)
+        {
+            headGo = (GameObject)PrefabUtility.InstantiatePrefab(headAsset, sHead.transform);
+            headGo.name = "Head";
+            headGo.transform.localPosition = Vector3.zero;
+            headGo.transform.localRotation = Quaternion.identity;
+            headGo.transform.localScale = new Vector3(0.95f, 0.95f, 0.95f);
+            var hunterFaceMat = GetMat("Mat_Hunter_Face");
+            if (hunterFaceMat != null) ApplyMaterial(headGo, hunterFaceMat);
+        }
 
-        // 3. Face Decal with Crafty Slanted Eyes
-        var hunterFaceMat = GetMat("Mat_Hunter_Face");
-        AttachFace(headGo.transform, hunterFaceMat);
-
-        // 4. Nón Lá on Head
+        // 3. Khăn Đóng / Nón on Head
         GameObject nonLaAsset = LoadModel("NonLa.obj");
         if (nonLaAsset != null)
         {
             GameObject nonLaInst = (GameObject)PrefabUtility.InstantiatePrefab(nonLaAsset, sHead.transform);
             nonLaInst.name = "NonLa";
-            nonLaInst.transform.localPosition = new Vector3(0f, 0.22f, 0f);
+            nonLaInst.transform.localPosition = new Vector3(0f, 0.28f, 0f);
             nonLaInst.transform.localRotation = Quaternion.Euler(10f, 0f, 0f);
             nonLaInst.transform.localScale = Vector3.one;
 

@@ -36,6 +36,7 @@ public static class BuildWebGL
         PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
         PlayerSettings.companyName = "RongRanChamCham";
         PlayerSettings.productName = "Rong Ran Cham Cham 3D";
+        EditorUserBuildSettings.webGLOptimizationLevel = WebGLOptimizationLevel.None;
 
         // 4. Set Scenes to Build
         string[] scenes = new string[] { MainScene };
@@ -46,7 +47,7 @@ public static class BuildWebGL
             scenes = scenes,
             locationPathName = OutputDir,
             target = BuildTarget.WebGL,
-            options = BuildOptions.None
+            options = BuildOptions.Development
         };
 
         Debug.Log($"[BuildWebGL] Building Player to: {OutputDir}...");
