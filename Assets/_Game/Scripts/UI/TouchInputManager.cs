@@ -46,10 +46,19 @@ namespace RongRanChamCham
 
         private void UpdateInput()
         {
+            // Dynamic radius scaling for mobile DPI
+            joystickRadius = Mathf.Max(75f, Screen.height * 0.12f);
+
             // 1. Check Mobile Multi-touch
             bool hasMobileTouch = ProcessTouches();
 
-            // 2. PC / Keyboard Fallback (if no touch input)
+            // 2. Mouse Drag Fallback (for Editor / PC testing of touch)
+            if (!hasMobileTouch)
+            {
+                hasMobileTouch = ProcessMouseAsTouch();
+            }
+
+            // 3. PC Keyboard Fallback (if no mouse/touch drag)
             if (!hasMobileTouch)
             {
                 ProcessKeyboardInput();
@@ -138,6 +147,68 @@ namespace RongRanChamCham
             }
 
             return anyTouchHandled;
+        }
+
+        private bool ProcessMouseAsTouch()
+        {
+            if (!Input.GetMouseButton(0) && !Input.GetMouseButtonDown(0) && !Input.GetMouseButtonUp(0))
+            {
+                if (isLeftTouchActive)
+                {
+                    isLeftTouchActive = false;
+                    moveDirection = Vector2.zero;
+                }
+                return false;
+            }
+
+            Vector2 mouseScreen = Input.mousePosition;
+            Vector2 mouseGui = new Vector2(mouseScreen.x, Screen.height - mouseScreen.y);
+            float screenHalfWidth = Screen.width * 0.5f;
+
+            // Check Right Lock Button
+            if (lockButtonRect.Contains(mouseGui))
+            {
+                isFacingLocked = Input.GetMouseButton(0);
+                return true;
+            }
+
+            // Check Left Virtual Joystick
+            if (mouseScreen.x < screenHalfWidth)
+            {
+                if (Input.GetMouseButtonDown(0))
+                {
+                    isLeftTouchActive = true;
+                    joystickCenter = mouseGui;
+                    joystickCurrentPos = mouseGui;
+                    moveDirection = Vector2.zero;
+                    return true;
+                }
+                else if (Input.GetMouseButton(0) && isLeftTouchActive)
+                {
+                    joystickCurrentPos = mouseGui;
+                    Vector2 diff = joystickCurrentPos - joystickCenter;
+                    float dist = diff.magnitude;
+                    if (dist > 5.0f)
+                    {
+                        Vector2 dir = diff.normalized;
+                        float clampedDist = Mathf.Min(dist, joystickRadius);
+                        moveDirection = new Vector2(dir.x, -dir.y) * (clampedDist / joystickRadius);
+                    }
+                    else
+                    {
+                        moveDirection = Vector2.zero;
+                    }
+                    return true;
+                }
+            }
+
+            if (Input.GetMouseButtonUp(0))
+            {
+                isLeftTouchActive = false;
+                moveDirection = Vector2.zero;
+            }
+
+            return false;
         }
 
         private void ProcessKeyboardInput()

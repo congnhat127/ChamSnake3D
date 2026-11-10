@@ -26,6 +26,9 @@ namespace RongRanChamCham
 
         private void Awake()
         {
+            Application.targetFrameRate = 60;
+            Screen.sleepTimeout = SleepTimeout.NeverSleep;
+
             if (Instance != null && Instance != this)
             {
                 Destroy(gameObject);

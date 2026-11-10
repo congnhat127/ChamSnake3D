@@ -37,13 +37,17 @@ namespace RongRanChamCham
             }
         }
 
+        private int lastScreenH = -1;
+
         private void InitStyles()
         {
-            if (stylesInitialized) return;
+            if (stylesInitialized && lastScreenH == Screen.height) return;
+            lastScreenH = Screen.height;
 
+            int h = Screen.height;
             headerStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 24,
+                fontSize = Mathf.Clamp(Mathf.RoundToInt(h * 0.048f), 22, 54),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.UpperCenter
             };
@@ -51,7 +55,7 @@ namespace RongRanChamCham
 
             subHeaderStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 18,
+                fontSize = Mathf.Clamp(Mathf.RoundToInt(h * 0.034f), 16, 38),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.UpperLeft
             };
@@ -59,7 +63,7 @@ namespace RongRanChamCham
 
             heartStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 26,
+                fontSize = Mathf.Clamp(Mathf.RoundToInt(h * 0.050f), 24, 56),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.UpperLeft
             };
@@ -67,7 +71,7 @@ namespace RongRanChamCham
 
             bannerStyle = new GUIStyle(GUI.skin.box)
             {
-                fontSize = 30,
+                fontSize = Mathf.Clamp(Mathf.RoundToInt(h * 0.044f), 20, 50),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
@@ -75,13 +79,13 @@ namespace RongRanChamCham
 
             buttonStyle = new GUIStyle(GUI.skin.button)
             {
-                fontSize = 22,
+                fontSize = Mathf.Clamp(Mathf.RoundToInt(h * 0.038f), 18, 44),
                 fontStyle = FontStyle.Bold
             };
 
             duelButtonStyle = new GUIStyle(GUI.skin.button)
             {
-                fontSize = 24,
+                fontSize = Mathf.Clamp(Mathf.RoundToInt(h * 0.042f), 20, 48),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };

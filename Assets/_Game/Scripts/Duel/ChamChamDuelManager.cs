@@ -65,6 +65,8 @@ namespace RongRanChamCham
             // 2. Wait for player reaction (1.2s reaction window)
             DuelDirection playerChoice = DuelDirection.Straight;
             reactionTimeRemaining = 1.2f;
+            Vector2 touchStartPos = Vector2.zero;
+            bool isTrackingSwipe = false;
 
             while (reactionTimeRemaining > 0f)
             {
@@ -74,6 +76,34 @@ namespace RongRanChamCham
                 {
                     playerChoice = userClickedChoice;
                     break;
+                }
+
+                // Mobile Touch Swipe Detection (Left / Right / Up)
+                if (Input.touchCount > 0)
+                {
+                    Touch t = Input.GetTouch(0);
+                    if (t.phase == TouchPhase.Began)
+                    {
+                        touchStartPos = t.position;
+                        isTrackingSwipe = true;
+                    }
+                    else if (isTrackingSwipe && (t.phase == TouchPhase.Moved || t.phase == TouchPhase.Ended))
+                    {
+                        Vector2 delta = t.position - touchStartPos;
+                        if (delta.magnitude > 45f)
+                        {
+                            if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y))
+                            {
+                                playerChoice = delta.x < 0 ? DuelDirection.Left : DuelDirection.Right;
+                            }
+                            else if (delta.y > 0)
+                            {
+                                playerChoice = DuelDirection.Straight;
+                            }
+                            hasUserChosen = true;
+                            break;
+                        }
+                    }
                 }
 
 #if ENABLE_INPUT_SYSTEM
