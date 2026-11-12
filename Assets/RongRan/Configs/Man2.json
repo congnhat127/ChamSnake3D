@@ -1,0 +1,59 @@
+{
+ "level": 2,
+ "name": "Màn 2 – Làng Hanok Bukchon",
+ "kr": true,
+ "boundaryType": "roundrect",
+ "A": 0,
+ "B": 0,
+ "cx": 0,
+ "cz": -0.4,
+ "hx": 12.4,
+ "hz": 6.7,
+ "R": 3.4,
+ "obstacles": [
+  {
+   "x": -7.2,
+   "z": 0.3,
+   "r": 1.45
+  },
+  {
+   "x": 7.2,
+   "z": -0.3,
+   "r": 1.45
+  },
+  {
+   "x": -0.7,
+   "z": -2.8,
+   "r": 0.75
+  },
+  {
+   "x": 0.7,
+   "z": -2.8,
+   "r": 0.75
+  },
+  {
+   "x": 0,
+   "z": 2.6,
+   "r": 0.75
+  }
+ ],
+ "movers": [],
+ "spawnA0": 100,
+ "bg": "EFD3B8",
+ "sky": "FFE6CC",
+ "ground": "7A5A40",
+ "sun": "FFC98A",
+ "sunX": -11,
+ "sunY": 11,
+ "sunZ": 7,
+ "hemi": 0.55,
+ "sunI": 1.15,
+ "lights": [],
+ "fx": "leaves",
+ "fireX": 0,
+ "fireY": 0,
+ "fireZ": 0,
+ "fireDX": 0,
+ "fireDY": 0,
+ "fireDZ": 0
+}

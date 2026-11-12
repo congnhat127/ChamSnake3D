@@ -1,0 +1,128 @@
+{
+ "level": 5,
+ "name": "Màn 5 – Cầu Rồng Đà Nẵng",
+ "kr": false,
+ "boundaryType": "roundrect",
+ "A": 0,
+ "B": 0,
+ "cx": 0,
+ "cz": -0.4,
+ "hx": 12.4,
+ "hz": 6.7,
+ "R": 3.4,
+ "obstacles": [],
+ "movers": [
+  {
+   "kind": "buggy",
+   "index": 0,
+   "r": 0.9,
+   "hasLoop": true,
+   "ax": 0,
+   "az": 0,
+   "bx": 0,
+   "bz": 0,
+   "lcx": 0,
+   "lcz": -0.4,
+   "lrx": 7.2,
+   "lrz": 3.8,
+   "speed": 3.6,
+   "pause": 0,
+   "t0": 0,
+   "ph": 0,
+   "dir": 1
+  },
+  {
+   "kind": "buggy",
+   "index": 1,
+   "r": 0.9,
+   "hasLoop": true,
+   "ax": 0,
+   "az": 0,
+   "bx": 0,
+   "bz": 0,
+   "lcx": 0,
+   "lcz": -0.4,
+   "lrx": 7.2,
+   "lrz": 3.8,
+   "speed": 3.6,
+   "pause": 0,
+   "t0": 0,
+   "ph": 3.141592653589793,
+   "dir": 1
+  },
+  {
+   "kind": "buggy",
+   "index": 2,
+   "r": 0.9,
+   "hasLoop": true,
+   "ax": 0,
+   "az": 0,
+   "bx": 0,
+   "bz": 0,
+   "lcx": 0,
+   "lcz": -0.4,
+   "lrx": 2.6,
+   "lrz": 1.4,
+   "speed": 2.6,
+   "pause": 0,
+   "t0": 0,
+   "ph": 0.5,
+   "dir": -1
+  }
+ ],
+ "spawnA0": 100,
+ "bg": "0E1830",
+ "sky": "3A4A8A",
+ "ground": "1A1A22",
+ "sun": "B0BCFF",
+ "sunX": 6,
+ "sunY": 14,
+ "sunZ": 8,
+ "hemi": 0.5,
+ "sunI": 0.45,
+ "lights": [
+  {
+   "x": -13.4,
+   "y": 3.5,
+   "z": 3.8,
+   "color": "FFE08A"
+  },
+  {
+   "x": 13.4,
+   "y": 3.5,
+   "z": 3.8,
+   "color": "FFE08A"
+  },
+  {
+   "x": -13.4,
+   "y": 3.5,
+   "z": -6.2,
+   "color": "FFE08A"
+  },
+  {
+   "x": 13.4,
+   "y": 3.5,
+   "z": -6.2,
+   "color": "FFE08A"
+  },
+  {
+   "x": 13,
+   "y": 4.5,
+   "z": -8.5,
+   "color": "FF9A3A"
+  },
+  {
+   "x": -11,
+   "y": 3,
+   "z": -5,
+   "color": "BFE6FF"
+  }
+ ],
+ "fx": "fire",
+ "fireX": 15.08060461173628,
+ "fireY": 3.55,
+ "fireZ": -7.8170580303842065,
+ "fireDX": 0.49271329201685465,
+ "fireDY": 0.41036467732879783,
+ "fireDZ": 0.767355487027196
+}
