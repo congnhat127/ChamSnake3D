@@ -4,6 +4,24 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/_Game/Scenes/Gameplay.unity
+    guid: 15005d6d42f18ee4c84e13ff35e44fe3
+  - enabled: 1
+    path: Assets/_Game/Scenes/Man1.unity
+    guid: 1180a0c0a0e134644b5cafa3a8c25a97
+  - enabled: 1
+    path: Assets/_Game/Scenes/Man2.unity
+    guid: d62fcc34794f4d441894815dfa0c1a17
+  - enabled: 1
+    path: Assets/_Game/Scenes/Man3.unity
+    guid: 94f089d7afe72c44b8b2bc322e4cd2a5
+  - enabled: 1
+    path: Assets/_Game/Scenes/Man4.unity
+    guid: bc143f0300a24384fbcf857ad7932e0d
+  - enabled: 1
+    path: Assets/_Game/Scenes/Man5.unity
+    guid: 60bee239a042ae94fa43ee5e31cac362
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}

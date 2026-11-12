@@ -1,6 +1,10 @@
+using System.IO;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
+#endif
+#if UNITY_EDITOR
+using UnityEditor;
 #endif
 using TouchPhase = UnityEngine.TouchPhase;
 
@@ -26,6 +30,16 @@ namespace RongRanChamCham
         private int rightTouchFingerId = -1;
         private Rect lockButtonRect;
 
+        // Swipe tracking for Cham Cham Cham QTE
+        private Vector2 swipeStartPos;
+        private bool isSwipeTracking = false;
+
+        // Professional UI Textures
+        private Texture2D texActionNormal;
+        private Texture2D texActionPressed;
+        private Texture2D texJoystickBase;
+        private Texture2D texJoystickKnob;
+
         public Vector2 MoveDirection => moveDirection;
         public bool IsFacingLocked => isFacingLocked;
 
@@ -37,6 +51,66 @@ namespace RongRanChamCham
                 return;
             }
             Instance = this;
+            LoadTextures();
+        }
+
+        private void LoadTextures()
+        {
+            texActionNormal = Resources.Load<Texture2D>("UI/btn_action_circle_normal");
+            texActionPressed = Resources.Load<Texture2D>("UI/btn_action_circle_pressed");
+            texJoystickBase = Resources.Load<Texture2D>("UI/joystick_base");
+            texJoystickKnob = Resources.Load<Texture2D>("UI/joystick_knob");
+
+#if UNITY_EDITOR
+            if (texActionNormal == null) texActionNormal = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/_Game/Textures/UI/btn_action_circle_normal.png");
+            if (texActionPressed == null) texActionPressed = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/_Game/Textures/UI/btn_action_circle_pressed.png");
+            if (texJoystickBase == null) texJoystickBase = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/_Game/Textures/UI/joystick_base.png");
+            if (texJoystickKnob == null) texJoystickKnob = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/_Game/Textures/UI/joystick_knob.png");
+#endif
+            if (texActionNormal == null) texActionNormal = LoadTextureFromDisk("Assets/_Game/Textures/UI/btn_action_circle_normal.png");
+            if (texActionPressed == null) texActionPressed = LoadTextureFromDisk("Assets/_Game/Textures/UI/btn_action_circle_pressed.png");
+            if (texJoystickBase == null) texJoystickBase = LoadTextureFromDisk("Assets/_Game/Textures/UI/joystick_base.png");
+            if (texJoystickKnob == null) texJoystickKnob = LoadTextureFromDisk("Assets/_Game/Textures/UI/joystick_knob.png");
+
+            // Absolute procedural fallback guarantee
+            if (texActionNormal == null) texActionNormal = CreateCircleTex(new Color(0.12f, 0.70f, 0.35f, 0.95f), new Color(0.35f, 0.95f, 0.55f));
+            if (texActionPressed == null) texActionPressed = CreateCircleTex(new Color(0.08f, 0.45f, 0.22f, 1f), new Color(0.25f, 0.80f, 0.40f));
+            if (texJoystickBase == null) texJoystickBase = CreateCircleTex(new Color(1f, 1f, 1f, 0.18f), new Color(1f, 1f, 1f, 0.40f));
+            if (texJoystickKnob == null) texJoystickKnob = CreateCircleTex(new Color(0.2f, 0.65f, 1f, 0.85f), new Color(0.6f, 0.85f, 1f));
+        }
+
+        private static Texture2D CreateCircleTex(Color fill, Color border)
+        {
+            const int s = 64;
+            Texture2D t = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            Color[] p = new Color[s * s];
+            float center = (s - 1) * 0.5f;
+            float maxR = center;
+            for (int y = 0; y < s; y++)
+            {
+                for (int x = 0; x < s; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
+                    if (d > maxR) p[y * s + x] = Color.clear;
+                    else if (d > maxR - 3f) p[y * s + x] = border;
+                    else p[y * s + x] = fill;
+                }
+            }
+            t.SetPixels(p);
+            t.Apply();
+            return t;
+        }
+
+        private Texture2D LoadTextureFromDisk(string assetRelPath)
+        {
+            string fullPath = Path.Combine(Application.dataPath, assetRelPath.Replace("Assets/", ""));
+            if (File.Exists(fullPath))
+            {
+                byte[] bytes = File.ReadAllBytes(fullPath);
+                Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (tex.LoadImage(bytes)) return tex;
+            }
+            return null;
         }
 
         private void Update()
@@ -44,10 +118,44 @@ namespace RongRanChamCham
             UpdateInput();
         }
 
+#if UNITY_EDITOR
+        // Chỉ dùng cho playtest tự động trong Editor: cầu nối bơm input thay cho ngón tay.
+        private bool scriptedInputActive = false;
+        private Vector2 scriptedMove = Vector2.zero;
+        private bool scriptedLock = false;
+
+        public void SetScriptedInput(bool active, Vector2 move, bool facingLock)
+        {
+            scriptedInputActive = active;
+            scriptedMove = Vector2.ClampMagnitude(move, 1f);
+            scriptedLock = facingLock;
+            if (!active)
+            {
+                moveDirection = Vector2.zero;
+                isFacingLocked = false;
+            }
+        }
+#endif
+
         private void UpdateInput()
         {
-            // Dynamic radius scaling for mobile DPI
-            joystickRadius = Mathf.Max(75f, Screen.height * 0.12f);
+#if UNITY_EDITOR
+            if (scriptedInputActive)
+            {
+                moveDirection = scriptedMove;
+                isFacingLocked = scriptedLock;
+                return;
+            }
+#endif
+            float refScale = Screen.height / 1080f;
+            joystickRadius = Screen.height * 0.10f;
+
+            // Compute responsive button rect early for touches & OnGUI
+            float btnSize = Screen.height * 0.18f;
+            float margin = 35f * refScale;
+            float btnX = Screen.width - btnSize - margin;
+            float btnY = Screen.height - btnSize - margin;
+            lockButtonRect = new Rect(btnX, btnY, btnSize, btnSize);
 
             // 1. Check Mobile Multi-touch
             bool hasMobileTouch = ProcessTouches();
@@ -69,16 +177,18 @@ namespace RongRanChamCham
         {
             if (Input.touchCount == 0)
             {
-                isLeftTouchActive = false;
+                if (isLeftTouchActive)
+                {
+                    isLeftTouchActive = false;
+                    leftTouchFingerId = -1;
+                    moveDirection = Vector2.zero;
+                }
+                isFacingLocked = false;
+                rightTouchFingerId = -1;
                 return false;
             }
 
             float screenHalfWidth = Screen.width * 0.5f;
-
-            // Recalculate right-side lock button position
-            float btnSize = Mathf.Min(Screen.width, Screen.height) * 0.22f;
-            lockButtonRect = new Rect(Screen.width - btnSize - 30f, Screen.height - btnSize - 30f, btnSize, btnSize);
-
             bool anyTouchHandled = false;
 
             for (int i = 0; i < Input.touchCount; i++)
@@ -87,16 +197,47 @@ namespace RongRanChamCham
                 Vector2 screenPos = t.position;
                 Vector2 guiPos = new Vector2(screenPos.x, Screen.height - screenPos.y);
 
-                // Check Right Side (Lock Button)
-                if (lockButtonRect.Contains(guiPos))
+                // Swipe Gesture Detection for QTE Duel
+                if (ChamChamDuelManager.Instance != null && ChamChamDuelManager.Instance.IsDuelActive)
                 {
-                    if (t.phase == TouchPhase.Began || t.phase == TouchPhase.Stationary || t.phase == TouchPhase.Moved)
+                    if (t.phase == TouchPhase.Began)
                     {
-                        isFacingLocked = true;
-                        rightTouchFingerId = t.fingerId;
-                        anyTouchHandled = true;
+                        swipeStartPos = screenPos;
+                        isSwipeTracking = true;
                     }
-                    else if (t.phase == TouchPhase.Ended || t.phase == TouchPhase.Canceled)
+                    else if (t.phase == TouchPhase.Ended && isSwipeTracking)
+                    {
+                        Vector2 delta = screenPos - swipeStartPos;
+                        if (delta.magnitude > 45f)
+                        {
+                            if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y))
+                            {
+                                if (delta.x < 0) ChamChamDuelManager.Instance.ChooseDirection(DuelDirection.Left);
+                                else ChamChamDuelManager.Instance.ChooseDirection(DuelDirection.Right);
+                            }
+                            else
+                            {
+                                if (delta.y > 0) ChamChamDuelManager.Instance.ChooseDirection(DuelDirection.Straight);
+                                else ChamChamDuelManager.Instance.ChooseDirection(DuelDirection.Down);
+                            }
+                        }
+                        isSwipeTracking = false;
+                    }
+                }
+
+                // Check Right Side (Action Shield Button)
+                if (screenPos.x >= screenHalfWidth)
+                {
+                    if (lockButtonRect.Contains(guiPos))
+                    {
+                        if (t.phase == TouchPhase.Began || t.phase == TouchPhase.Stationary || t.phase == TouchPhase.Moved)
+                        {
+                            isFacingLocked = true;
+                            rightTouchFingerId = t.fingerId;
+                            anyTouchHandled = true;
+                        }
+                    }
+                    if (t.phase == TouchPhase.Ended || t.phase == TouchPhase.Canceled)
                     {
                         if (t.fingerId == rightTouchFingerId)
                         {
@@ -128,7 +269,6 @@ namespace RongRanChamCham
                         {
                             Vector2 dir = diff.normalized;
                             float clampedDist = Mathf.Min(dist, joystickRadius);
-                            // Invert Y for world movement (Up on screen = +Z)
                             moveDirection = new Vector2(dir.x, -dir.y) * (clampedDist / joystickRadius);
                         }
                         else
@@ -164,6 +304,34 @@ namespace RongRanChamCham
             Vector2 mouseScreen = Input.mousePosition;
             Vector2 mouseGui = new Vector2(mouseScreen.x, Screen.height - mouseScreen.y);
             float screenHalfWidth = Screen.width * 0.5f;
+
+            // Swipe detection for Mouse
+            if (ChamChamDuelManager.Instance != null && ChamChamDuelManager.Instance.IsDuelActive)
+            {
+                if (Input.GetMouseButtonDown(0))
+                {
+                    swipeStartPos = mouseScreen;
+                    isSwipeTracking = true;
+                }
+                else if (Input.GetMouseButtonUp(0) && isSwipeTracking)
+                {
+                    Vector2 delta = mouseScreen - swipeStartPos;
+                    if (delta.magnitude > 45f)
+                    {
+                        if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y))
+                        {
+                            if (delta.x < 0) ChamChamDuelManager.Instance.ChooseDirection(DuelDirection.Left);
+                            else ChamChamDuelManager.Instance.ChooseDirection(DuelDirection.Right);
+                        }
+                        else
+                        {
+                            if (delta.y > 0) ChamChamDuelManager.Instance.ChooseDirection(DuelDirection.Straight);
+                            else ChamChamDuelManager.Instance.ChooseDirection(DuelDirection.Down);
+                        }
+                    }
+                    isSwipeTracking = false;
+                }
+            }
 
             // Check Right Lock Button
             if (lockButtonRect.Contains(mouseGui))
@@ -236,38 +404,66 @@ namespace RongRanChamCham
 
         private void OnGUI()
         {
-            // Draw Virtual Touch Controls on Screen
-            float btnSize = Mathf.Min(Screen.width, Screen.height) * 0.22f;
-            lockButtonRect = new Rect(Screen.width - btnSize - 35f, Screen.height - btnSize - 35f, btnSize, btnSize);
-
-            // 1. Right Lock-Facing Button
-            Color prevColor = GUI.backgroundColor;
-            GUI.backgroundColor = isFacingLocked ? new Color(1.0f, 0.3f, 0.3f, 0.9f) : new Color(0.2f, 0.2f, 0.2f, 0.6f);
-
-            GUIStyle btnStyle = new GUIStyle(GUI.skin.button)
+            if (GameManager.Instance == null || GameManager.Instance.CurrentState != GameState.Chasing)
             {
-                fontSize = Mathf.RoundToInt(btnSize * 0.16f),
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
-            };
-            btnStyle.normal.textColor = Color.white;
+                return;
+            }
 
-            string btnLabel = isFacingLocked ? "🔒 ĐANG KHÓA\nHƯỚNG ĐẦU" : "🛡️ GIỮ ĐỂ\nKHÓA ĐẦU";
-            GUI.Box(lockButtonRect, btnLabel, btnStyle);
-            GUI.backgroundColor = prevColor;
-
-            // 2. Left Virtual Joystick Visual
-            if (isLeftTouchActive)
+            // 1. Right Action Button (Clean 3D Circular Barrier Button, ZERO TEXT)
+            Texture2D actionTex = isFacingLocked ? texActionPressed : texActionNormal;
+            if (actionTex != null)
             {
-                // Outer circle
-                GUI.color = new Color(1f, 1f, 1f, 0.35f);
-                GUI.Box(new Rect(joystickCenter.x - joystickRadius, joystickCenter.y - joystickRadius, joystickRadius * 2f, joystickRadius * 2f), "");
+                Rect drawRect = lockButtonRect;
+                if (isFacingLocked)
+                {
+                    // Mechanical press feedback: shrink 4%
+                    float scaleOffset = lockButtonRect.width * 0.02f;
+                    drawRect = new Rect(lockButtonRect.x + scaleOffset, lockButtonRect.y + scaleOffset + 4f, lockButtonRect.width - 2 * scaleOffset, lockButtonRect.height - 2 * scaleOffset);
+                }
+                GUI.DrawTexture(drawRect, actionTex, ScaleMode.ScaleToFit, true);
+            }
 
-                // Handle knob
-                GUI.color = new Color(0.2f, 0.8f, 1f, 0.85f);
-                GUI.Box(new Rect(joystickCurrentPos.x - 25f, joystickCurrentPos.y - 25f, 50f, 50f), "");
+            // 2. Left Virtual Joystick (Clean Frosted Ring & Glossy Knob)
+            // If touch is not active, display an elegant resting guide so player knows exactly where to thumb
+            float defaultJoyX = Screen.width * 0.12f;
+            float defaultJoyY = Screen.height * 0.78f;
+            Vector2 displayCenter = isLeftTouchActive ? joystickCenter : new Vector2(defaultJoyX, defaultJoyY);
+            Vector2 displayKnob = isLeftTouchActive ? joystickCurrentPos : displayCenter;
+
+            Color prevGuiColor = GUI.color;
+            if (!isLeftTouchActive)
+            {
+                GUI.color = new Color(1f, 1f, 1f, 0.65f); // clear idle guide
+            }
+            else
+            {
                 GUI.color = Color.white;
             }
+
+            if (texJoystickBase != null)
+            {
+                Rect baseRect = new Rect(displayCenter.x - joystickRadius, displayCenter.y - joystickRadius, joystickRadius * 2f, joystickRadius * 2f);
+                // Subtle back-shadow for high contrast against bright arena floors
+                GUI.color = new Color(0f, 0f, 0f, isLeftTouchActive ? 0.35f : 0.20f);
+                GUI.DrawTexture(new Rect(baseRect.x + 2f, baseRect.y + 3f, baseRect.width, baseRect.height), texJoystickBase, ScaleMode.ScaleToFit, true);
+
+                GUI.color = isLeftTouchActive ? Color.white : new Color(1f, 1f, 1f, 0.70f);
+                GUI.DrawTexture(baseRect, texJoystickBase, ScaleMode.ScaleToFit, true);
+            }
+
+            if (texJoystickKnob != null)
+            {
+                float knobSize = joystickRadius * 0.65f;
+                Rect knobRect = new Rect(displayKnob.x - knobSize * 0.5f, displayKnob.y - knobSize * 0.5f, knobSize, knobSize);
+                // Subtle back-shadow
+                GUI.color = new Color(0f, 0f, 0f, isLeftTouchActive ? 0.30f : 0.15f);
+                GUI.DrawTexture(new Rect(knobRect.x + 1f, knobRect.y + 2f, knobRect.width, knobRect.height), texJoystickKnob, ScaleMode.ScaleToFit, true);
+
+                GUI.color = isLeftTouchActive ? Color.white : new Color(1f, 1f, 1f, 0.85f);
+                GUI.DrawTexture(knobRect, texJoystickKnob, ScaleMode.ScaleToFit, true);
+            }
+
+            GUI.color = prevGuiColor;
         }
     }
 }
