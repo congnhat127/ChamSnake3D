@@ -74,6 +74,7 @@ GameObject:
   - component: {fileID: 3070762299988866525}
   - component: {fileID: 3366309711648852955}
   - component: {fileID: 1109305154204734249}
+  - component: {fileID: 6166140786022710293}
   m_Layer: 0
   m_Name: Hunter
   m_TagString: Hunter
@@ -159,12 +160,36 @@ MonoBehaviour:
   m_EditorClassIdentifier: RongRanChamCham.Runtime::RongRanChamCham.ChibiProceduralAnimator
   socketFootL: {fileID: 8654201179376310639}
   socketFootR: {fileID: 8275360441155778029}
+  socketHandL: {fileID: 0}
+  socketHandR: {fileID: 0}
   bodyVisual: {fileID: 5362528266404991379}
   stepFrequency: 14
   strideLength: 0.22
   stepLiftHeight: 0.12
   bodyBobHeight: 0.05
   bodyWobbleAngle: 4.5
+--- !u!95 &6166140786022710293
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1685992577512227574}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: e725754aa52278f429d24d28993b0921, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &2321270381735579798
 GameObject:
   m_ObjectHideFlags: 0

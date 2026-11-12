@@ -8,11 +8,14 @@ namespace RongRanChamCham
         [SerializeField] private FoodType foodType;
 
         [Header("Animation")]
-        [SerializeField] private float rotateSpeed = 65f;
-        [SerializeField] private float bobFrequency = 2.0f;
-        [SerializeField] private float bobAmplitude = 0.12f;
+        [SerializeField] private float rotateSpeed = 40f;
+        [SerializeField] private float bobFrequency = 1.8f;
+        [SerializeField] private float bobAmplitude = 0.06f;
 
-        private Vector3 startPosition;
+        private Transform visualContainer;
+        private Transform groundAura;
+        private Vector3 startContainerPos;
+        private Vector3 startAuraScale;
 
         public FoodType Type => foodType;
 
@@ -23,17 +26,52 @@ namespace RongRanChamCham
 
         private void Start()
         {
-            startPosition = transform.position;
+            visualContainer = transform.Find("Visual_Container");
+            groundAura = transform.Find("Ground_Aura_Ring");
+
+            if (visualContainer != null)
+            {
+                startContainerPos = visualContainer.localPosition;
+                // Giữ cố định góc nghiêng -34 độ ngửa mặt thẳng vào camera, xuôi chiều từ trên xuống
+                visualContainer.localRotation = Quaternion.Euler(-34f, 0f, 0f);
+            }
+            else
+            {
+                startContainerPos = transform.position;
+            }
+
+            if (groundAura != null)
+            {
+                startAuraScale = groundAura.localScale;
+            }
         }
 
         private void Update()
         {
-            // Rotate smoothly around Y axis
-            transform.Rotate(Vector3.up, rotateSpeed * Time.deltaTime, Space.World);
+            float time = Time.time;
 
-            // Gentle floating bob
-            float newY = startPosition.y + Mathf.Sin(Time.time * bobFrequency) * bobAmplitude;
-            transform.position = new Vector3(transform.position.x, newY, transform.position.z);
+            // 1. Nhấp nhô nhẹ nhàng (Floating bob), KHÔNG xoay tròn để hình món ăn luôn ngửa về phía người chơi
+            if (visualContainer != null)
+            {
+                float bobY = startContainerPos.y + Mathf.Sin(time * bobFrequency) * bobAmplitude;
+                visualContainer.localPosition = new Vector3(startContainerPos.x, bobY, startContainerPos.z);
+
+                // Độ phập phồng nhẹ tạo cảm giác hấp dẫn
+                float pulse = 1.0f + 0.04f * Mathf.Sin(time * 3.0f);
+                visualContainer.localScale = new Vector3(pulse, pulse, pulse);
+            }
+            else
+            {
+                float newY = startContainerPos.y + Mathf.Sin(time * bobFrequency) * bobAmplitude;
+                transform.position = new Vector3(transform.position.x, newY, transform.position.z);
+            }
+
+            // 2. Vòng dạ quang sàn phập phồng nhẹ
+            if (groundAura != null)
+            {
+                float auraPulse = 1.0f + 0.10f * Mathf.Sin(time * 4.0f);
+                groundAura.localScale = new Vector3(startAuraScale.x * auraPulse, startAuraScale.y, startAuraScale.z * auraPulse);
+            }
         }
 
         private void OnTriggerEnter(Collider other)

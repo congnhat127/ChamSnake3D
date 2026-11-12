@@ -12,6 +12,7 @@ namespace RongRanChamCham
 
         [Header("Snake Active Buffs")]
         public bool SnakeHasShield { get; private set; }
+        public float SnakeShieldTimer { get; private set; }
         public float SnakeSpeedTimer { get; private set; }
         public float SnakeGiantTimer { get; private set; }
         public float SnakeCloneTimer { get; private set; }
@@ -46,6 +47,15 @@ namespace RongRanChamCham
             float dt = Time.deltaTime;
 
             // Snake timers
+            if (SnakeShieldTimer > 0f)
+            {
+                SnakeShieldTimer -= dt;
+                if (SnakeShieldTimer <= 0f)
+                {
+                    SnakeHasShield = false;
+                    OnBuffExpired?.Invoke(FoodType.BanhMi, true);
+                }
+            }
             if (SnakeSpeedTimer > 0f)
             {
                 SnakeSpeedTimer -= dt;
@@ -94,9 +104,17 @@ namespace RongRanChamCham
             if (SnakeHasShield)
             {
                 SnakeHasShield = false;
+                SnakeShieldTimer = 0f;
                 Debug.Log("[BuffSystem] Khiên Bánh Mì của Rồng Rắn đã vỡ (đỡ thành công 1 đòn vồ)!");
                 OnBuffExpired?.Invoke(FoodType.BanhMi, true);
             }
+        }
+
+        public void GrantTemporaryShield()
+        {
+            SnakeHasShield = true;
+            SnakeShieldTimer = 3.0f; // Bảo hộ tạm thời 3s sau đối đầu
+            Debug.Log("[BuffSystem] Cấp lá chắn bảo hộ tạm thời 3s cho đàn con sau pha đối đầu!");
         }
 
         public void ApplyBuff(FoodType type, bool isSnake)
@@ -104,13 +122,16 @@ namespace RongRanChamCham
             float normalDuration = GameConstants.BuffDuration;
             float cloneDuration = GameConstants.CloneDuration;
 
+            AudioManager.Instance?.PlaySFX(SoundType.Pickup);
+
             if (isSnake)
             {
                 switch (type)
                 {
                     case FoodType.BanhMi:
                         SnakeHasShield = true;
-                        Debug.Log("[BuffSystem] Rồng Rắn nhận LÁ CHẮN BÁNH MÌ (đỡ 1 lần vồ)!");
+                        SnakeShieldTimer = normalDuration;
+                        Debug.Log($"[BuffSystem] Rồng Rắn nhận LÁ CHẮN BÁNH MÌ trong {normalDuration}s (đỡ 1 lần vồ)!");
                         break;
                     case FoodType.Pho:
                         SnakeSpeedTimer = normalDuration;

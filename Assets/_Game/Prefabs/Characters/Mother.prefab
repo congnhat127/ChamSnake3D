@@ -170,6 +170,7 @@ GameObject:
   - component: {fileID: 4027511574151219919}
   - component: {fileID: 6163019353611995849}
   - component: {fileID: 2771064482402709584}
+  - component: {fileID: 8737488254659551803}
   m_Layer: 0
   m_Name: Mother
   m_TagString: Player
@@ -256,12 +257,36 @@ MonoBehaviour:
   m_EditorClassIdentifier: RongRanChamCham.Runtime::RongRanChamCham.ChibiProceduralAnimator
   socketFootL: {fileID: 3221743872990841101}
   socketFootR: {fileID: 1698478622854739920}
+  socketHandL: {fileID: 0}
+  socketHandR: {fileID: 0}
   bodyVisual: {fileID: 3250696411343367128}
   stepFrequency: 14
   strideLength: 0.22
   stepLiftHeight: 0.12
   bodyBobHeight: 0.05
   bodyWobbleAngle: 4.5
+--- !u!95 &8737488254659551803
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5800321287199193976}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: b2b94b7d5b7a6c943969e4b7a560f8e7, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &5864679656788975370
 GameObject:
   m_ObjectHideFlags: 0

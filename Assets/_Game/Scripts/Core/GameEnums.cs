@@ -6,6 +6,7 @@ namespace RongRanChamCham
         Showcase,
         Ready,
         Chasing,
+        Paused,
         Duel,
         RoundOver,
         Victory,
@@ -22,9 +23,10 @@ namespace RongRanChamCham
 
     public enum DuelDirection
     {
-        Left,
-        Straight,
-        Right
+        Left,       // Trái ◀
+        Straight,   // Lên / Ngửa ▲
+        Right,      // Phải ▶
+        Down        // Xuống / Cúi ▼
     }
 
     public enum HunterState

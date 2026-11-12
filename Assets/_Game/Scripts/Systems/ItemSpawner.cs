@@ -14,8 +14,12 @@ namespace RongRanChamCham
         [Header("Spawn Settings")]
         [SerializeField] private int maxItemsOnField = 2;
         [SerializeField] private float spawnInterval = 10f;
-        [SerializeField] private float minSpawnRadius = 3.5f;
-        [SerializeField] private float maxSpawnRadius = 11.5f;
+        [Tooltip("Bánh Gạo Cay (phân thân) chưa có hiệu ứng trong game; bật khi đã làm xong phân thân")]
+        [SerializeField] private bool spawnCloneFood = false;
+        [Tooltip("Bán kính chiếm chỗ của vật phẩm, bằng bán kính trigger của pickup (m)")]
+        [SerializeField] private float itemBodyRadius = 0.55f;
+        [Tooltip("Độ cao lơ lửng của vật phẩm so với mặt sân (m)")]
+        [SerializeField] private float itemHoverHeight = 0.45f;
 
         private float nextSpawnTime = 0f;
         private List<GameObject> activeItems = new List<GameObject>();
@@ -65,33 +69,29 @@ namespace RongRanChamCham
                 chosenType = FoodType.Kimbap;
                 prefabToSpawn = kimbapPrefab;
             }
-            else
+            else if (spawnCloneFood)
             {
                 chosenType = FoodType.Tteokbokki;
                 prefabToSpawn = tteokbokkiPrefab;
             }
-
-            // Spawn Position in Arena Circle
-            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
-            float r = Random.Range(minSpawnRadius, maxSpawnRadius);
-            Vector3 spawnPos = new Vector3(Mathf.Cos(angle) * r, 0.45f, Mathf.Sin(angle) * r);
-
-            GameObject itemGo = null;
-            if (prefabToSpawn != null)
-            {
-                itemGo = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity);
-            }
             else
             {
-                // Fallback: create token runtime
-                itemGo = new GameObject($"Pickup_{chosenType}");
-                itemGo.transform.position = spawnPos;
-                var col = itemGo.AddComponent<SphereCollider>();
-                col.isTrigger = true;
-                col.radius = 0.45f;
-                var pickup = itemGo.AddComponent<FoodPickup>();
-                pickup.Initialize(chosenType);
+                chosenType = FoodType.Kimbap;
+                prefabToSpawn = kimbapPrefab;
             }
+
+            // Vị trí sinh: phân bố đều trong vùng di chuyển được của sân, ngoài vật cản.
+            Vector3 spawnPos = ArenaBoundary.RandomPointInside(itemBodyRadius);
+            spawnPos.y = itemHoverHeight;
+
+            if (prefabToSpawn == null)
+            {
+                // Không sinh vật phẩm không có hình: người chơi sẽ nhận buff mà không thấy mình ăn gì.
+                Debug.LogWarning($"[ItemSpawner] Chưa gán prefab cho {chosenType}, bỏ qua lần sinh này.");
+                return;
+            }
+
+            GameObject itemGo = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity);
 
             if (itemGo != null)
             {

@@ -18,6 +18,10 @@ namespace RongRanChamCham
         [SerializeField] private Transform hunterTarget;
 
         private CharacterController characterController;
+        private Animator animator;
+        private ChibiProceduralAnimator proceduralAnim;
+        private HunterAI cachedHunterAI;
+        private float nextShieldSfxTime = 0f;
         private Quaternion lockedRotation;
         private bool wasFacingLocked = false;
         private float verticalVelocity = 0f;
@@ -46,6 +50,8 @@ namespace RongRanChamCham
         private void Awake()
         {
             characterController = GetComponent<CharacterController>();
+            animator = GetComponent<Animator>();
+            proceduralAnim = GetComponent<ChibiProceduralAnimator>();
         }
 
         private void Start()
@@ -53,6 +59,47 @@ namespace RongRanChamCham
             lockedRotation = transform.rotation;
             EnsureHunterTarget();
             EnsureSockets();
+            IgnoreCollisionsWithChildren();
+
+            if (BuffSystem.Instance != null)
+            {
+                BuffSystem.Instance.OnBuffApplied += HandleBuffApplied;
+            }
+        }
+
+        private void IgnoreCollisionsWithChildren()
+        {
+            var allChildren = Object.FindObjectsByType<ChildFollower>(FindObjectsInactive.Include);
+            if (allChildren == null || allChildren.Length == 0) return;
+
+            foreach (var child in allChildren)
+            {
+                var childCC = child.GetComponent<CharacterController>();
+                if (childCC != null && characterController != null)
+                {
+                    Physics.IgnoreCollision(characterController, childCC, true);
+                }
+            }
+
+            for (int i = 0; i < allChildren.Length; i++)
+            {
+                var ccA = allChildren[i].GetComponent<CharacterController>();
+                if (ccA == null) continue;
+                for (int j = i + 1; j < allChildren.Length; j++)
+                {
+                    var ccB = allChildren[j].GetComponent<CharacterController>();
+                    if (ccB != null) Physics.IgnoreCollision(ccA, ccB, true);
+                }
+            }
+        }
+
+        private void HandleBuffApplied(FoodType food, bool isSnake)
+        {
+            if (isSnake)
+            {
+                var procAnim = GetComponent<ChibiProceduralAnimator>();
+                if (procAnim != null) procAnim.TriggerPowerUpPulse(0.65f);
+            }
         }
 
         private void EnsureSockets()
@@ -67,7 +114,15 @@ namespace RongRanChamCham
             if (hunterTarget == null)
             {
                 var hunter = Object.FindAnyObjectByType<HunterAI>();
-                if (hunter != null) hunterTarget = hunter.transform;
+                if (hunter != null)
+                {
+                    hunterTarget = hunter.transform;
+                    cachedHunterAI = hunter;
+                }
+            }
+            else if (cachedHunterAI == null)
+            {
+                cachedHunterAI = hunterTarget.GetComponent<HunterAI>();
             }
         }
 
@@ -80,12 +135,48 @@ namespace RongRanChamCham
         {
             if (GameManager.Instance != null && GameManager.Instance.CurrentState != GameState.Chasing)
             {
+                bool isVic = GameManager.Instance.CurrentState == GameState.Victory;
+                bool isDef = GameManager.Instance.CurrentState == GameState.GameOver;
+
+                if (proceduralAnim != null)
+                {
+                    proceduralAnim.SetCelebrationMode(isVic, isDef);
+                }
+
+                if (animator != null)
+                {
+                    animator.SetFloat("Speed", 0f);
+                    animator.SetBool("IsGuarding", false);
+                    animator.SetBool("IsVictory", isVic);
+                }
+
+                // End-game celebration: Rotate to face the camera and celebrate!
+                if (isVic)
+                {
+                    transform.rotation = Quaternion.Slerp(transform.rotation, CameraFollow.FacingCamera(transform.position), Time.deltaTime * 6f);
+                }
+                else if (isDef)
+                {
+                    transform.rotation = Quaternion.Slerp(transform.rotation, CameraFollow.FacingCamera(transform.position, 15f), Time.deltaTime * 4f);
+                }
+
                 return;
             }
+
+            var activeAnim = GetComponent<ChibiProceduralAnimator>();
+            if (activeAnim != null) activeAnim.SetCelebrationMode(false, false);
 
             EnsureHunterTarget();
             HandleMovement();
             HandleShoveHunter();
+
+            if (animator != null)
+            {
+                Vector2 input = TouchInputManager.Instance != null ? TouchInputManager.Instance.MoveDirection : Vector2.zero;
+                animator.SetFloat("Speed", input.magnitude * NormalSpeed);
+                animator.SetBool("IsGuarding", IsFacingLocked);
+                animator.SetBool("IsVictory", false);
+            }
         }
 
         private void HandleMovement()
@@ -107,7 +198,8 @@ namespace RongRanChamCham
                 lockAuraVisual.SetActive(isLocked);
             }
 
-            Vector3 moveDirection = new Vector3(input.x, 0f, input.y);
+            // Joystick tính theo màn hình: đẩy lên là chạy ra xa camera.
+            Vector3 moveDirection = CameraFollow.InputToWorld(input);
             float effectiveSpeed = isLocked ? StrafeSpeed : NormalSpeed;
 
             // Apply Food Buffs
@@ -150,21 +242,23 @@ namespace RongRanChamCham
             moveDelta.y = verticalVelocity;
             characterController.Move(moveDelta * Time.deltaTime);
 
-            // 3. Keep within Arena Boundary & strictly clamp ground Y = 0
-            Vector3 clampedPos = transform.position;
-            float horizontalDist = Mathf.Sqrt(clampedPos.x * clampedPos.x + clampedPos.z * clampedPos.z);
-            float maxAllowedRadius = ArenaRadius - 0.8f;
-            if (horizontalDist > maxAllowedRadius)
-            {
-                Vector2 clampedXZ = new Vector2(clampedPos.x, clampedPos.z).normalized * maxAllowedRadius;
-                clampedPos.x = clampedXZ.x;
-                clampedPos.z = clampedXZ.y;
-            }
-            if (clampedPos.y < 0f || characterController.isGrounded)
-            {
-                clampedPos.y = 0f;
-            }
+            // 3. Keep strictly within Arena Ellipse Boundary
+            Vector3 clampedPos = ArenaBoundary.ClampToArena(transform.position, 0.5f);
             transform.position = clampedPos;
+        }
+
+        // Dynamic Defense Radius: Natural arm reach (1.40m base, 1.65m when actively guarding, +30% with Giant buff)
+        public float CurrentDefenseRadius
+        {
+            get
+            {
+                float baseRadius = IsFacingLocked ? 1.65f : 1.40f;
+                if (BuffSystem.Instance != null && BuffSystem.Instance.IsSnakeGiantActive)
+                {
+                    baseRadius *= 1.30f; // -> 1.82m normal, 2.15m when guarding
+                }
+                return baseRadius;
+            }
         }
 
         private void HandleShoveHunter()
@@ -175,16 +269,22 @@ namespace RongRanChamCham
             toHunter.y = 0f;
             float dist = toHunter.magnitude;
 
-            // Sải tay bảo vệ: bán kính cản dựa trên nửa sải tay hoặc cự ly chuẩn
-            float defenseRadius = ArmSpan > 0.5f ? (ArmSpan * 0.5f + 0.3f) : 1.7f;
+            float defenseRadius = CurrentDefenseRadius;
 
-            if (dist < defenseRadius && Vector3.Dot(transform.forward, toHunter.normalized) > 0.1f)
+            // Covers Mother's entire 180-degree forward and lateral arm span (dot > -0.05f)
+            if (dist < defenseRadius && Vector3.Dot(transform.forward, toHunter.normalized) > -0.05f)
             {
-                var hunterAI = hunterTarget.GetComponent<HunterAI>();
+                var hunterAI = cachedHunterAI != null ? cachedHunterAI : (cachedHunterAI = hunterTarget.GetComponent<HunterAI>());
                 if (hunterAI != null)
                 {
-                    float shoveForce = IsFacingLocked ? 10.0f : 6.0f;
+                    float shoveForce = IsFacingLocked ? 9.5f : 6.0f;
                     hunterAI.GetShovedByMother(toHunter.normalized, shoveForce);
+
+                    if (Time.time >= nextShieldSfxTime)
+                    {
+                        nextShieldSfxTime = Time.time + 0.45f;
+                        AudioManager.Instance?.PlaySFX(SoundType.ShieldBlock);
+                    }
                 }
             }
         }
@@ -201,15 +301,15 @@ namespace RongRanChamCham
             }
             else
             {
-                Vector3 left = transform.position + transform.right * -1.4f + Vector3.up * 1.0f;
-                Vector3 right = transform.position + transform.right * 1.4f + Vector3.up * 1.0f;
+                Vector3 left = transform.position + transform.right * -1.35f + Vector3.up * 1.0f;
+                Vector3 right = transform.position + transform.right * 1.35f + Vector3.up * 1.0f;
                 Gizmos.DrawLine(left, right);
             }
 
             // Draw Shove Defense Arc
             Gizmos.color = new Color(1f, 0.92f, 0.016f, 0.4f);
-            float defenseRadius = ArmSpan > 0.5f ? (ArmSpan * 0.5f + 0.3f) : 1.7f;
-            Gizmos.DrawWireSphere(transform.position + transform.forward * 0.5f, defenseRadius);
+            float defenseRadius = CurrentDefenseRadius;
+            Gizmos.DrawWireSphere(transform.position + transform.forward * 0.35f, defenseRadius);
         }
     }
 }

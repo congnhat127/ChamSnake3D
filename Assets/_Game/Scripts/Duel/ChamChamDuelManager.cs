@@ -19,14 +19,25 @@ namespace RongRanChamCham
         [SerializeField] private bool isDuelActive = false;
         private bool hasUserChosen = false;
         private DuelDirection userClickedChoice = DuelDirection.Straight;
+        private DuelDirection currentHunterChoice = DuelDirection.Straight;
         private float reactionTimeRemaining = 0f;
+        private int countdownNumber = 0;
+
+        private int currentRound = 1;
+        private int playerScore = 0;
+        private int hunterScore = 0;
 
         public event Action<string> OnDuelChantStep; // "CHĂM... CHĂM... CHĂM!"
         public event Action<bool, string> OnRoundResult; // (won, message)
         public event Action<bool> OnDuelFinished; // (conUtSurvived)
 
         public bool IsDuelActive => isDuelActive;
+        public DuelDirection CurrentHunterChoice => currentHunterChoice;
         public float ReactionTimeRemaining => reactionTimeRemaining;
+        public int CountdownNumber => countdownNumber;
+        public int CurrentRound => currentRound;
+        public int PlayerScore => playerScore;
+        public int HunterScore => hunterScore;
 
         private void Awake()
         {
@@ -42,9 +53,80 @@ namespace RongRanChamCham
         {
             isDuelActive = true;
             hasUserChosen = false;
+            currentRound = 1;
+            playerScore = 0;
+            hunterScore = 0;
+
+            StageActorsForDuel();
 
             if (duelArenaStage != null) duelArenaStage.SetActive(true);
             StartCoroutine(DuelRoutine());
+        }
+
+        private void StageActorsForDuel()
+        {
+            var hunter = UnityEngine.Object.FindAnyObjectByType<HunterAI>();
+            var snakeChain = UnityEngine.Object.FindAnyObjectByType<SnakeChainIK>();
+            var mother = UnityEngine.Object.FindAnyObjectByType<MotherController>();
+
+            if (hunter == null || snakeChain == null || snakeChain.ConUt == null) return;
+
+            // Tâm điểm sân khấu đối kháng 3D: trung tâm sân đấu
+            Vector3 center = Vector3.zero;
+            if (ArenaBoundary.ActiveArena != null)
+            {
+                float mx = (ArenaBoundary.ActiveArena.motherSpawn.x + ArenaBoundary.ActiveArena.hunterSpawn.x) * 0.5f;
+                float mz = (ArenaBoundary.ActiveArena.motherSpawn.y + ArenaBoundary.ActiveArena.hunterSpawn.y) * 0.5f;
+                center = new Vector3(mx, 0f, mz);
+            }
+            center.y = 0f;
+
+            // Thầy Thuốc đứng bên phải (x = +1.3m), quay mặt sang trái hướng về bé Út
+            Vector3 hunterDuelPos = center + new Vector3(1.3f, 0f, 0f);
+            hunter.transform.position = hunterDuelPos;
+            hunter.transform.rotation = Quaternion.LookRotation(Vector3.left);
+
+            // Bé Út đứng bên trái (x = -1.3m), quay mặt sang phải hướng về Thầy Thuốc
+            Vector3 utDuelPos = center + new Vector3(-1.3f, 0f, 0f);
+            snakeChain.ConUt.transform.position = utDuelPos;
+            snakeChain.ConUt.transform.rotation = Quaternion.LookRotation(Vector3.right);
+
+            // Mẹ và các con khác đứng lùi lại phía sau (z = +2.0m) làm hậu phương cổ vũ
+            if (mother != null)
+            {
+                mother.transform.position = center + new Vector3(-3.2f, 0f, 1.8f);
+                mother.transform.rotation = Quaternion.LookRotation(new Vector3(1.0f, 0f, -0.35f));
+            }
+
+            var children = snakeChain.Children;
+            for (int i = 0; i < children.Count; i++)
+            {
+                if (children[i] == null || children[i] == snakeChain.ConUt) continue;
+                children[i].transform.position = center + new Vector3(-4.0f - i * 0.85f, 0f, 2.0f);
+                children[i].transform.rotation = Quaternion.LookRotation(new Vector3(1.0f, 0f, -0.35f));
+            }
+        }
+
+        // Dùng khi scene không có LevelManager; bằng cửa sổ phản xạ của Màn 2.
+        private const float DefaultReactionWindow = 1.35f;
+
+        private static string DirectionName(DuelDirection dir)
+        {
+            switch (dir)
+            {
+                case DuelDirection.Left: return "Trái";
+                case DuelDirection.Right: return "Phải";
+                case DuelDirection.Down: return "Cúi";
+                default: return "Lên";
+            }
+        }
+
+        public void CancelDuel()
+        {
+            StopAllCoroutines();
+            isDuelActive = false;
+            countdownNumber = 0;
+            if (duelArenaStage != null) duelArenaStage.SetActive(false);
         }
 
         public void ChooseDirection(DuelDirection dir)
@@ -52,131 +134,198 @@ namespace RongRanChamCham
             if (!isDuelActive || hasUserChosen) return;
             userClickedChoice = dir;
             hasUserChosen = true;
+
+            // Phản xạ tức thì: Bé Út né và quay đầu ngay khi nhấn nút
+            var snakeChain = UnityEngine.Object.FindAnyObjectByType<SnakeChainIK>();
+            if (snakeChain != null && snakeChain.ConUt != null)
+            {
+                snakeChain.ConUt.SetDuelDodge(dir);
+                AudioManager.Instance?.PlaySFX(SoundType.Dodge);
+            }
         }
 
         private IEnumerator DuelRoutine()
         {
-            // 1. Chant sequence
-            OnDuelChantStep?.Invoke("RỒNG RẮN LÊN MÂY...");
-            yield return new WaitForSeconds(1.0f);
-
-            OnDuelChantStep?.Invoke("CHĂM... CHĂM... CHĂM!");
-            yield return new WaitForSeconds(0.4f);
-
-            // 2. Wait for player reaction (1.2s reaction window)
-            DuelDirection playerChoice = DuelDirection.Straight;
-            reactionTimeRemaining = 1.2f;
-            Vector2 touchStartPos = Vector2.zero;
-            bool isTrackingSwipe = false;
-
-            while (reactionTimeRemaining > 0f)
+            // Best of 3 System: Tối đa 3 hiệp, ai thắng 2 trước là giành phần thắng
+            while (playerScore < 2 && hunterScore < 2 && currentRound <= 3)
             {
-                reactionTimeRemaining -= Time.deltaTime;
+                hasUserChosen = false;
+                userClickedChoice = DuelDirection.Straight;
 
-                if (hasUserChosen)
-                {
-                    playerChoice = userClickedChoice;
-                    break;
-                }
+                // Reset thế đứng của cả Bé Út và Thầy Thuốc trước mỗi hiệp
+                var snakeChain = UnityEngine.Object.FindAnyObjectByType<SnakeChainIK>();
+                var hunter = UnityEngine.Object.FindAnyObjectByType<HunterAI>();
+                if (snakeChain != null && snakeChain.ConUt != null) snakeChain.ConUt.ResetDuelStance();
+                if (hunter != null) hunter.ResetDuelStance();
 
-                // Mobile Touch Swipe Detection (Left / Right / Up)
-                if (Input.touchCount > 0)
+                // ĐẾM LÙI 3 - 2 - 1 ĐỀU ĐẶN Ở MỌI HIỆP ĐẤU
+                countdownNumber = 3;
+                OnDuelChantStep?.Invoke("3");
+                AudioManager.Instance?.PlaySFX(SoundType.ChamBeat);
+                yield return new WaitForSeconds(0.65f);
+
+                countdownNumber = 2;
+                OnDuelChantStep?.Invoke("2");
+                AudioManager.Instance?.PlaySFX(SoundType.ChamBeat);
+                yield return new WaitForSeconds(0.65f);
+
+                countdownNumber = 1;
+                OnDuelChantStep?.Invoke("1");
+                AudioManager.Instance?.PlaySFX(SoundType.ChamBeat);
+                yield return new WaitForSeconds(0.65f);
+
+                countdownNumber = 0;
+                OnDuelChantStep?.Invoke("CHĂM! NÉ MAU!");
+                AudioManager.Instance?.PlaySFX(SoundType.ChamBeat);
+
+                // Thầy Thuốc chọn hướng và ra đòn chỉ hướng rõ ràng
+                DuelDirection hunterChoice = (DuelDirection)UnityEngine.Random.Range(0, 4);
+                currentHunterChoice = hunterChoice;
+                if (hunter != null) hunter.TriggerDuelPoint(hunterChoice);
+
+                // Cửa sổ thời gian phản xạ né đòn (tối thiểu 1.35 giây)
+                DuelDirection playerChoice = DuelDirection.Straight;
+                reactionTimeRemaining = LevelManager.Instance != null ? LevelManager.Instance.CurrentLevelData.qteReactionWindow : DefaultReactionWindow;
+                if (reactionTimeRemaining < 1.35f) reactionTimeRemaining = 1.35f;
+
+                Vector2 touchStartPos = Vector2.zero;
+                bool isTrackingSwipe = false;
+
+                while (reactionTimeRemaining > 0f)
                 {
-                    Touch t = Input.GetTouch(0);
-                    if (t.phase == TouchPhase.Began)
+                    reactionTimeRemaining -= Time.deltaTime;
+
+                    if (hasUserChosen)
                     {
-                        touchStartPos = t.position;
-                        isTrackingSwipe = true;
+                        playerChoice = userClickedChoice;
+                        break;
                     }
-                    else if (isTrackingSwipe && (t.phase == TouchPhase.Moved || t.phase == TouchPhase.Ended))
+
+                    // Mobile Touch Swipe Detection (Left / Right / Up / Down)
+                    if (Input.touchCount > 0)
                     {
-                        Vector2 delta = t.position - touchStartPos;
-                        if (delta.magnitude > 45f)
+                        Touch t = Input.GetTouch(0);
+                        if (t.phase == TouchPhase.Began)
                         {
-                            if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y))
+                            touchStartPos = t.position;
+                            isTrackingSwipe = true;
+                        }
+                        else if (isTrackingSwipe && (t.phase == TouchPhase.Moved || t.phase == TouchPhase.Ended))
+                        {
+                            Vector2 delta = t.position - touchStartPos;
+                            if (delta.magnitude > 45f)
                             {
-                                playerChoice = delta.x < 0 ? DuelDirection.Left : DuelDirection.Right;
+                                if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y))
+                                {
+                                    playerChoice = delta.x < 0 ? DuelDirection.Left : DuelDirection.Right;
+                                }
+                                else
+                                {
+                                    playerChoice = delta.y > 0 ? DuelDirection.Straight : DuelDirection.Down;
+                                }
+                                ChooseDirection(playerChoice);
+                                break;
                             }
-                            else if (delta.y > 0)
-                            {
-                                playerChoice = DuelDirection.Straight;
-                            }
-                            hasUserChosen = true;
+                        }
+                    }
+
+#if ENABLE_INPUT_SYSTEM
+                    var keyboard = Keyboard.current;
+                    if (keyboard != null)
+                    {
+                        if (keyboard.leftArrowKey.wasPressedThisFrame || keyboard.aKey.wasPressedThisFrame)
+                        {
+                            ChooseDirection(DuelDirection.Left);
+                            playerChoice = DuelDirection.Left;
+                            break;
+                        }
+                        if (keyboard.rightArrowKey.wasPressedThisFrame || keyboard.dKey.wasPressedThisFrame)
+                        {
+                            ChooseDirection(DuelDirection.Right);
+                            playerChoice = DuelDirection.Right;
+                            break;
+                        }
+                        if (keyboard.upArrowKey.wasPressedThisFrame || keyboard.wKey.wasPressedThisFrame)
+                        {
+                            ChooseDirection(DuelDirection.Straight);
+                            playerChoice = DuelDirection.Straight;
+                            break;
+                        }
+                        if (keyboard.downArrowKey.wasPressedThisFrame || keyboard.sKey.wasPressedThisFrame)
+                        {
+                            ChooseDirection(DuelDirection.Down);
+                            playerChoice = DuelDirection.Down;
                             break;
                         }
                     }
+#else
+                    if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A))
+                    {
+                        ChooseDirection(DuelDirection.Left);
+                        playerChoice = DuelDirection.Left;
+                        break;
+                    }
+                    if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D))
+                    {
+                        ChooseDirection(DuelDirection.Right);
+                        playerChoice = DuelDirection.Right;
+                        break;
+                    }
+                    if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W))
+                    {
+                        ChooseDirection(DuelDirection.Straight);
+                        playerChoice = DuelDirection.Straight;
+                        break;
+                    }
+                    if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.S))
+                    {
+                        ChooseDirection(DuelDirection.Down);
+                        playerChoice = DuelDirection.Down;
+                        break;
+                    }
+#endif
+                    yield return null;
                 }
 
-#if ENABLE_INPUT_SYSTEM
-                var keyboard = Keyboard.current;
-                if (keyboard != null)
+                // Kiểm tra kết quả hiệp
+                bool roundWon = (playerChoice != hunterChoice) && hasUserChosen;
+
+                if (roundWon)
                 {
-                    if (keyboard.leftArrowKey.wasPressedThisFrame || keyboard.aKey.wasPressedThisFrame)
-                    {
-                        playerChoice = DuelDirection.Left;
-                        hasUserChosen = true;
-                        break;
-                    }
-                    if (keyboard.rightArrowKey.wasPressedThisFrame || keyboard.dKey.wasPressedThisFrame)
-                    {
-                        playerChoice = DuelDirection.Right;
-                        hasUserChosen = true;
-                        break;
-                    }
-                    if (keyboard.upArrowKey.wasPressedThisFrame || keyboard.wKey.wasPressedThisFrame)
-                    {
-                        playerChoice = DuelDirection.Straight;
-                        hasUserChosen = true;
-                        break;
-                    }
+                    playerScore++;
+                    AudioManager.Instance?.PlaySFX(SoundType.Pickup);
+                    OnRoundResult?.Invoke(true, $"HIỆP {currentRound}: NÉ ĐƯỢC!  {playerScore} – {hunterScore}");
                 }
-#else
-                if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A))
+                else
                 {
-                    playerChoice = DuelDirection.Left;
-                    hasUserChosen = true;
-                    break;
+                    hunterScore++;
+                    AudioManager.Instance?.PlaySFX(SoundType.Defeat);
+                    string failReason = hasUserChosen ? $"Trùng hướng {DirectionName(hunterChoice)}" : "Quá giờ né";
+                    OnRoundResult?.Invoke(false, $"HIỆP {currentRound}: {failReason}!  {playerScore} – {hunterScore}");
                 }
-                if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D))
-                {
-                    playerChoice = DuelDirection.Right;
-                    hasUserChosen = true;
-                    break;
-                }
-                if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W))
-                {
-                    playerChoice = DuelDirection.Straight;
-                    hasUserChosen = true;
-                    break;
-                }
-#endif
-                yield return null;
+
+                yield return new WaitForSeconds(1.3f);
+                currentRound++;
             }
 
-            // 3. Hunter chooses random direction
-            DuelDirection hunterChoice = (DuelDirection)UnityEngine.Random.Range(0, 3);
+            // 5. Final Best of 3 Outcome (Win 2/3 rounds)
+            bool overallWon = (playerScore >= 2);
 
-            // 4. Check outcome (1 Decisive Round):
-            // Rule: If Con Út looks DIFFERENT direction than Hunter's hand -> WON (Safe, lose 0.5 heart)
-            // If Con Út looks SAME direction -> LOST (Con is eliminated / OUT)
-            bool won = (playerChoice != hunterChoice) && hasUserChosen;
-
-            if (won)
+            if (overallWon)
             {
-                OnRoundResult?.Invoke(true, $"CHIẾN THẮNG! Thầy Thuốc chỉ ({hunterChoice}), Con Út quay ({playerChoice})! (Mất 0.5 tim)");
+                OnRoundResult?.Invoke(true, $"BÉ ÚT THOÁT!  {playerScore} – {hunterScore}");
             }
             else
             {
-                string reason = hasUserChosen ? $"Thầy Thuốc chém trúng hướng ({hunterChoice})" : "Quá thời gian phản xạ";
-                OnRoundResult?.Invoke(false, $"THUA CUỘC! {reason}! Con Út bị bắt!");
+                OnRoundResult?.Invoke(false, $"BÉ ÚT BỊ BẮT!  {playerScore} – {hunterScore}");
             }
 
-            yield return new WaitForSeconds(2.0f);
+            yield return new WaitForSeconds(1.8f);
 
             isDuelActive = false;
             if (duelArenaStage != null) duelArenaStage.SetActive(false);
 
-            OnDuelFinished?.Invoke(won);
+            OnDuelFinished?.Invoke(overallWon);
         }
     }
 }

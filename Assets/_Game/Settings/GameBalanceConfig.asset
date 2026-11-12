@@ -12,23 +12,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54127aeede27404499a9ecca6a11aa89, type: 3}
   m_Name: GameBalanceConfig
   m_EditorClassIdentifier: RongRanChamCham.Runtime::RongRanChamCham.GameBalanceConfig
-  arenaRadius: 16
-  motherNormalSpeed: 6.5
-  motherStrafeSpeed: 5
-  motherTurnSpeed: 12
-  hunterNormalSpeed: 6.5
-  hunterFlankSpeed: 6.5
-  hunterGrabRange: 1.6
-  hunterGrabWindup: 0.25
-  hunterGrabCooldown: 0.5
+  arenaRadius: 11.5
+  motherNormalSpeed: 6
+  motherStrafeSpeed: 5.5
+  motherTurnSpeed: 10
+  hunterNormalSpeed: 6
+  hunterFlankSpeed: 6
+  hunterGrabRange: 1.05
+  hunterGrabWindup: 0.22
+  hunterGrabCooldown: 1.2
   childCount: 3
-  chainLinkDistance: 0.68
-  chainFollowSpeed: 18
-  chainMaxStretch: 1.2
-  centrifugalWhipMultiplier: 1.15
+  chainLinkDistance: 0.92
+  chainFollowSpeed: 6.8
+  chainMaxStretch: 1.25
+  centrifugalWhipMultiplier: 1.08
   maxHearts: 3
   heartLossOnWin: 0.5
-  chaseRoundDuration: 60
-  buffDuration: 7
+  chaseRoundDuration: 90
+  buffDuration: 10
   cloneDuration: 5
   cloneFadeDelay: 2
