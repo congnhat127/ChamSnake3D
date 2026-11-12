@@ -68,3 +68,7 @@ ehthumbs.db
 Thumbs.db
 [Dd]esktop.ini
 
+# Runtime logs & python cache
+*.log
+__pycache__/
+
