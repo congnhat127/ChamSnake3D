@@ -17,7 +17,12 @@ public static class UnityMcpBridge
     private static HttpListener listener;
     private static Thread listenerThread;
     private static bool isRunning = false;
-    private static readonly int Port = 8090;
+    private const int BasePort = 8090;
+    // Sau một lần nạp lại code, listener cũ đôi khi không dừng hẳn và vẫn giữ cổng.
+    // Khi đó thử các cổng kế tiếp và ghi cổng đang dùng ra file để công cụ bên ngoài đọc.
+    private const int PortAttempts = 10;
+    private const string PortFile = "Temp/mcp_bridge_port.txt";
+    private static int Port = BasePort;
 
     private static readonly List<string> consoleLogs = new List<string>();
     private static readonly object logLock = new object();
@@ -35,6 +40,9 @@ public static class UnityMcpBridge
     private static double lastCheckTime = 0;
     private static void CheckAndEnsureRunning()
     {
+        try { PlaytestBridge.EditorTick(); }
+        catch (Exception ex) { Debug.LogException(ex); }
+
         if (File.Exists("Temp/trigger_refresh.tmp"))
         {
             try
@@ -100,6 +108,72 @@ public static class UnityMcpBridge
             }
         }
 
+        if (File.Exists("Temp/trigger_setup_rongran.tmp"))
+        {
+            try
+            {
+                File.Delete("Temp/trigger_setup_rongran.tmp");
+                RongRanSetup.BuildAndSaveAllScenes();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
+        if (File.Exists("Temp/trigger_generate_anims.tmp"))
+        {
+            try
+            {
+                File.Delete("Temp/trigger_generate_anims.tmp");
+                RongRanChamCham.Editor.GenerateCharacterAnimations.Execute();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
+        if (File.Exists("Temp/trigger_setup_master.tmp"))
+        {
+            try
+            {
+                File.Delete("Temp/trigger_setup_master.tmp");
+                RongRanChamCham.Editor.GenerateCharacterAnimations.Execute();
+                SetupNewRongRanMaster.Execute();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
+        if (File.Exists("Temp/trigger_play.tmp"))
+        {
+            try
+            {
+                File.Delete("Temp/trigger_play.tmp");
+                EditorApplication.isPlaying = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
+        if (File.Exists("Temp/trigger_stop.tmp"))
+        {
+            try
+            {
+                File.Delete("Temp/trigger_stop.tmp");
+                EditorApplication.isPlaying = false;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
         if (isRunning) return;
         if (EditorApplication.timeSinceStartup - lastCheckTime < 2.0) return;
         lastCheckTime = EditorApplication.timeSinceStartup;
@@ -132,6 +206,32 @@ public static class UnityMcpBridge
 
     private static void StartServer()
     {
+        if (File.Exists("Temp/trigger_play.tmp"))
+        {
+            try
+            {
+                File.Delete("Temp/trigger_play.tmp");
+                EditorApplication.isPlaying = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
+        if (File.Exists("Temp/trigger_stop.tmp"))
+        {
+            try
+            {
+                File.Delete("Temp/trigger_stop.tmp");
+                EditorApplication.isPlaying = false;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
         if (isRunning) return;
 
         try
@@ -142,9 +242,27 @@ public static class UnityMcpBridge
                 listener = null;
             }
 
-            listener = new HttpListener();
-            listener.Prefixes.Add($"http://127.0.0.1:{Port}/");
-            listener.Start();
+            Exception lastError = null;
+            for (int attempt = 0; attempt < PortAttempts; attempt++)
+            {
+                int candidate = BasePort + attempt;
+                try
+                {
+                    var candidateListener = new HttpListener();
+                    candidateListener.Prefixes.Add($"http://127.0.0.1:{candidate}/");
+                    candidateListener.Start();
+                    listener = candidateListener;
+                    Port = candidate;
+                    lastError = null;
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex;
+                }
+            }
+            if (lastError != null) throw lastError;
+            File.WriteAllText(PortFile, Port.ToString());
             isRunning = true;
 
             listenerThread = new Thread(ListenLoop)
@@ -155,7 +273,7 @@ public static class UnityMcpBridge
 
             Debug.Log($"[Unity MCP Bridge] Active and listening on http://127.0.0.1:{Port}/");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // Silently wait for next tick or log once
             isRunning = false;
@@ -247,6 +365,74 @@ public static class UnityMcpBridge
                 }
                 break;
 
+            case "build_levels":
+                {
+                    EditorApplication.CallbackFunction bCb = null;
+                    bCb = () =>
+                    {
+                        EditorApplication.update -= bCb;
+                        try
+                        {
+                            RongRanSetup.BuildAndSaveAllScenes();
+                            SendJsonResponse(res, new { status = "success", message = "Built and saved all 5 Rong Ran scenes!" });
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogException(ex);
+                            SendJsonResponse(res, new { status = "error", message = ex.Message });
+                        }
+                    };
+                    EditorApplication.update += bCb;
+                    EditorApplication.QueuePlayerLoopUpdate();
+                }
+                break;
+
+            case "setup_master":
+                {
+                    EditorApplication.CallbackFunction mCb = null;
+                    mCb = () =>
+                    {
+                        EditorApplication.update -= mCb;
+                        try
+                        {
+                            SetupNewRongRanMaster.Execute();
+                            SendJsonResponse(res, new { status = "success", message = "Built and saved all 5 master scenes with updated lighting, characters, and physics!" });
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogException(ex);
+                            SendJsonResponse(res, new { status = "error", message = ex.Message });
+                        }
+                    };
+                    EditorApplication.update += mCb;
+                    EditorApplication.QueuePlayerLoopUpdate();
+                }
+                break;
+
+            case "open_scene":
+                {
+                    EditorApplication.CallbackFunction openCb = null;
+                    openCb = () =>
+                    {
+                        EditorApplication.update -= openCb;
+                        try
+                        {
+                            string sceneName = req.QueryString["name"] ?? "Gameplay";
+                            string scenePath = $"Assets/_Game/Scenes/{sceneName}.unity";
+                            EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                            SendJsonResponse(res, new { status = "success", scene = scenePath });
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogException(ex);
+                            SendJsonResponse(res, new { error = ex.Message });
+                        }
+                    };
+                    EditorApplication.update += openCb;
+                    EditorApplication.QueuePlayerLoopUpdate();
+                }
+                break;
+
             case "test_status":
                 {
                     EditorApplication.CallbackFunction testCb = null;
@@ -272,6 +458,9 @@ public static class UnityMcpBridge
                             SendJsonResponse(res, new
                             {
                                 isPlaying = EditorApplication.isPlaying,
+                                isCompiling = EditorApplication.isCompiling,
+                                isUpdating = EditorApplication.isUpdating,
+                                isPaused = EditorApplication.isPaused,
                                 motherFound = mother != null,
                                 motherPos = mother != null ? mother.transform.position.ToString() : "null",
                                 hunterFound = hunter != null,
@@ -287,6 +476,131 @@ public static class UnityMcpBridge
                         }
                     };
                     EditorApplication.update += testCb;
+                    EditorApplication.QueuePlayerLoopUpdate();
+                }
+                break;
+
+            case "start_match":
+                {
+                    EditorApplication.CallbackFunction smCb = null;
+                    smCb = () =>
+                    {
+                        EditorApplication.update -= smCb;
+                        try
+                        {
+                            var gm = GameManager.Instance ?? UnityEngine.Object.FindAnyObjectByType<GameManager>();
+                            if (gm != null)
+                            {
+                                gm.StartMatch();
+                                SendJsonResponse(res, new { status = "success", message = "Match started!" });
+                            }
+                            else
+                            {
+                                SendJsonResponse(res, new { status = "error", message = "GameManager not found" });
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            SendJsonResponse(res, new { error = ex.Message });
+                        }
+                    };
+                    EditorApplication.update += smCb;
+                    EditorApplication.QueuePlayerLoopUpdate();
+                }
+                break;
+
+            case "test_victory":
+                {
+                    EditorApplication.CallbackFunction vicCb = null;
+                    vicCb = () =>
+                    {
+                        EditorApplication.update -= vicCb;
+                        try
+                        {
+                            var gm = GameManager.Instance ?? UnityEngine.Object.FindAnyObjectByType<GameManager>();
+                            if (gm != null)
+                            {
+                                gm.ForceVictoryForTesting();
+                                SendJsonResponse(res, new { status = "success", message = "Victory state triggered!" });
+                            }
+                            else
+                            {
+                                SendJsonResponse(res, new { error = "GameManager not found" });
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            SendJsonResponse(res, new { error = ex.Message });
+                        }
+                    };
+                    EditorApplication.update += vicCb;
+                    EditorApplication.QueuePlayerLoopUpdate();
+                }
+                break;
+
+            case "test_gameover":
+                {
+                    EditorApplication.CallbackFunction goCb = null;
+                    goCb = () =>
+                    {
+                        EditorApplication.update -= goCb;
+                        try
+                        {
+                            var gm = GameManager.Instance ?? UnityEngine.Object.FindAnyObjectByType<GameManager>();
+                            if (gm != null)
+                            {
+                                gm.ForceGameOverForTesting();
+                                SendJsonResponse(res, new { status = "success", message = "GameOver state triggered!" });
+                            }
+                            else
+                            {
+                                SendJsonResponse(res, new { error = "GameManager not found" });
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            SendJsonResponse(res, new { error = ex.Message });
+                        }
+                    };
+                    EditorApplication.update += goCb;
+                    EditorApplication.QueuePlayerLoopUpdate();
+                }
+                break;
+
+            case "victory_status":
+                {
+                    EditorApplication.CallbackFunction vsCb = null;
+                    vsCb = () =>
+                    {
+                        EditorApplication.update -= vsCb;
+                        try
+                        {
+                            var gm = GameManager.Instance ?? UnityEngine.Object.FindAnyObjectByType<GameManager>();
+                            var mother = UnityEngine.Object.FindAnyObjectByType<MotherController>();
+                            var hunter = UnityEngine.Object.FindAnyObjectByType<HunterAI>();
+                            var cam = UnityEngine.Object.FindAnyObjectByType<CameraFollow>();
+
+                            var motherAnim = mother != null ? mother.GetComponent<Animator>() : null;
+                            var hunterAnim = hunter != null ? hunter.GetComponent<Animator>() : null;
+
+                            SendJsonResponse(res, new
+                            {
+                                gameState = gm != null ? gm.CurrentState.ToString() : "null",
+                                motherFacing = mother != null ? mother.transform.eulerAngles.ToString() : "null",
+                                motherIsVictoryAnim = motherAnim != null ? motherAnim.GetBool("IsVictory") : false,
+                                hunterFacing = hunter != null ? hunter.transform.eulerAngles.ToString() : "null",
+                                hunterIsAngryAnim = hunterAnim != null ? hunterAnim.GetBool("IsAngry") : false,
+                                hunterIsVictoryAnim = hunterAnim != null ? hunterAnim.GetBool("IsVictory") : false,
+                                cameraPos = cam != null ? cam.transform.position.ToString() : "null",
+                                cameraRot = cam != null ? cam.transform.eulerAngles.ToString() : "null"
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            SendJsonResponse(res, new { error = ex.Message });
+                        }
+                    };
+                    EditorApplication.update += vsCb;
                     EditorApplication.QueuePlayerLoopUpdate();
                 }
                 break;
@@ -334,17 +648,20 @@ public static class UnityMcpBridge
                 break;
 
             case "play":
+                EditorApplication.delayCall += () =>
                 {
-                    EditorApplication.CallbackFunction playCb = null;
-                    playCb = () =>
+                    try
                     {
-                        EditorApplication.update -= playCb;
-                        EditorApplication.isPlaying = !EditorApplication.isPlaying;
-                        SendJsonResponse(res, new { isPlaying = EditorApplication.isPlaying });
-                    };
-                    EditorApplication.update += playCb;
-                    EditorApplication.QueuePlayerLoopUpdate();
-                }
+                        UnityEditor.SceneManagement.EditorSceneManager.SaveOpenScenes();
+                        EditorApplication.ExecuteMenuItem("Edit/Play");
+                        SendJsonResponse(res, new { status = "toggled", isPlaying = EditorApplication.isPlaying });
+                    }
+                    catch (Exception ex)
+                    {
+                        SendJsonResponse(res, new { error = ex.Message });
+                    }
+                };
+                EditorApplication.QueuePlayerLoopUpdate();
                 break;
 
             case "create":
@@ -410,6 +727,7 @@ public static class UnityMcpBridge
                 break;
 
             default:
+                if (PlaytestBridge.TryHandle(path, req, res)) break;
                 SendJsonResponse(res, new { error = "Endpoint not found" }, 404);
                 break;
         }

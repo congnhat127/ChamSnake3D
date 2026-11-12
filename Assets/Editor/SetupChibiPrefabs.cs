@@ -40,6 +40,25 @@ public static class SetupChibiPrefabs
             Debug.LogError($"[SetupChibiPrefabs] RenderCharacterSnapshots error: {ex}");
         }
 
+        try
+        {
+            TestGlbLoading.Test();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[SetupChibiPrefabs] TestGlbLoading error: {ex}");
+        }
+
+        try
+        {
+            SetupNewRongRanMaster.Execute();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[SetupChibiPrefabs] SetupNewRongRanMaster error: {ex}");
+        }
+        AssetDatabase.Refresh();
+
         Debug.Log("[Speckit 001] Complete! Characters now have expressive faces, traditional accessories, and smooth watertight 3D models!");
     }
 
@@ -305,7 +324,7 @@ public static class SetupChibiPrefabs
 
         // Sockets
         GameObject sHead = CreateSocket(root.transform, "Socket_Head", new Vector3(0f, 1.34f, 0.0f));
-        GameObject sHandR = CreateSocket(root.transform, "Socket_Hand_R", new Vector3(0.23f, 0.82f, 0.48f));
+        GameObject sHandR = CreateSocket(root.transform, "Socket_Hand_R", new Vector3(0.30f, 0.78f, 0.16f));
 
         // 1. Attach Body Model: Chibi_Hunter.obj (Áo dài tím)
         GameObject hunterModelAsset = LoadModel("Chibi_Hunter.obj");
@@ -399,7 +418,6 @@ public static class SetupChibiPrefabs
         {
             if (rootGo.name.Contains("Mother") || rootGo.name.Contains("Hunter") || rootGo.name.Contains("Child") || 
                 rootGo.name.Contains("Con Út") || rootGo.name.Contains("DauDan") || rootGo.name.Contains("Khuc") || 
-                rootGo.name.Contains("ThayThuoc") || rootGo.name.Contains("Showcase_") ||
                 rootGo.name.Contains("Chibi") || rootGo.name.Contains("Pedestal") || rootGo.name.Contains("Showcase_Pedestal"))
             {
                 UnityEngine.Object.DestroyImmediate(rootGo);

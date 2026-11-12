@@ -8,18 +8,40 @@ using UnityEngine;
 public static class BuildWebGL
 {
     private const string OutputDir = "Builds/WebGL_Netlify";
-    private const string MainScene = "Assets/_Game/Scenes/Playground_CorePhysics.unity";
+    private static readonly string[] BuildScenes = new string[]
+    {
+        "Assets/_Game/Scenes/Gameplay.unity",
+        "Assets/_Game/Scenes/Man1.unity",
+        "Assets/_Game/Scenes/Man2.unity",
+        "Assets/_Game/Scenes/Man3.unity",
+        "Assets/_Game/Scenes/Man4.unity",
+        "Assets/_Game/Scenes/Man5.unity"
+    };
 
     [MenuItem("Tools/Rong Ran/Build WebGL for Netlify")]
     public static void Execute()
     {
         Debug.Log("[BuildWebGL] Starting WebGL Build for Netlify Drop...");
 
-        // 1. Ensure scene exists
-        if (!File.Exists(MainScene))
+        // 0. Ensure scenes are freshly baked with latest UI, food prefabs, and materials
+        try
         {
-            Debug.LogError($"[BuildWebGL] Main scene not found at {MainScene}!");
-            return;
+            SetupNewRongRanMaster.Execute();
+            Debug.Log("[BuildWebGL] SetupNewRongRanMaster.Execute() finished successfully.");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[BuildWebGL] SetupNewRongRanMaster warning: {ex.Message}");
+        }
+
+        // 1. Ensure scenes exist
+        foreach (var sc in BuildScenes)
+        {
+            if (!File.Exists(sc))
+            {
+                Debug.LogError($"[BuildWebGL] Scene not found at {sc}!");
+                return;
+            }
         }
 
         // 2. Ensure Output Directory
@@ -38,7 +60,7 @@ public static class BuildWebGL
         PlayerSettings.productName = "Rong Ran Cham Cham 3D";
 
         // 4. Set Scenes to Build
-        string[] scenes = new string[] { MainScene };
+        string[] scenes = BuildScenes;
 
         // 5. Build Options
         BuildPlayerOptions buildPlayerOptions = new BuildPlayerOptions
@@ -62,21 +84,29 @@ public static class BuildWebGL
             string headersContent = "/*\n  Access-Control-Allow-Origin: *\n  Cache-Control: public, max-age=3600\n";
             File.WriteAllText(headersFile, headersContent);
 
-            // Unity 6 WebGL IDBFS polyfill fix
+            // Unity 6 WebGL IDBFS bulletproof polyfill fix
             string buildFolder = Path.Combine(OutputDir, "Build");
             if (Directory.Exists(buildFolder))
             {
                 foreach (string jsFile in Directory.GetFiles(buildFolder, "*.framework.js"))
                 {
                     string js = File.ReadAllText(jsFile);
-                    string target = "injectIndexedDBToAutomaticallyPersist(){IDBFS.queuePersist";
-                    string polyfill = "injectIndexedDBToAutomaticallyPersist(){if(typeof IDBFS===\"undefined\"){var dummyIDBFS={mount:function(m){return MEMFS.mount(m)},syncfs:function(m,p,c){if(c)c(null)},queuePersist:function(m){}};if(typeof window!==\"undefined\")window.IDBFS=dummyIDBFS;if(typeof globalThis!==\"undefined\")globalThis.IDBFS=dummyIDBFS;if(typeof self!==\"undefined\")self.IDBFS=dummyIDBFS;IDBFS=dummyIDBFS;}IDBFS.queuePersist";
-                    if (js.Contains(target))
+                    string safeDecl = "var IDBFS = { mount: function(m) { return (typeof MEMFS !== 'undefined') ? MEMFS.createNode(null, '/', 16895, 0) : m; }, syncfs: function(m, p, c) { if (c) c(null); }, queuePersist: function(m) {} };";
+                    string errString = "var IDBFS = 'IDBFS is no longer included by default; build with -lidbfs.js';";
+                    if (js.Contains(errString))
                     {
-                        js = js.Replace(target, polyfill);
-                        File.WriteAllText(jsFile, js);
-                        Debug.Log($"[BuildWebGL] Patched IDBFS in {Path.GetFileName(jsFile)}");
+                        js = js.Replace(errString, safeDecl);
                     }
+                    if (!js.Contains("var IDBFS = {"))
+                    {
+                        js = js.Replace("var moduleRtn;", "var moduleRtn;" + safeDecl);
+                    }
+                    if (!js.Contains("function injectIndexedDBToAutomaticallyPersist(){return;"))
+                    {
+                        js = js.Replace("function injectIndexedDBToAutomaticallyPersist(){", "function injectIndexedDBToAutomaticallyPersist(){return;");
+                    }
+                    File.WriteAllText(jsFile, js);
+                    Debug.Log($"[BuildWebGL] Bulletproof IDBFS patch applied to {Path.GetFileName(jsFile)}");
                 }
             }
 
@@ -84,13 +114,28 @@ public static class BuildWebGL
             if (File.Exists(indexHtml))
             {
                 string html = File.ReadAllText(indexHtml);
-                string scriptTag = "<script>";
-                string polyfillScript = "<script>\n      if (typeof window.IDBFS === \"undefined\") {\n        window.IDBFS = {\n          mount: function(m) { return (typeof MEMFS !== \"undefined\") ? MEMFS.mount(m) : m; },\n          syncfs: function(m, p, c) { if (c) c(null); },\n          queuePersist: function(m) {}\n        };\n      }";
-                if (html.Contains(scriptTag) && !html.Contains("window.IDBFS"))
+                string polyfillScript = "<script>\n      var dummyIDBFS = {\n        mount: function(m) { return m; },\n        syncfs: function(m, p, c) { if (c) c(null); },\n        queuePersist: function(m) {}\n      };\n      window.IDBFS = dummyIDBFS;\n      globalThis.IDBFS = dummyIDBFS;\n    </script>\n";
+                if (!html.Contains("dummyIDBFS"))
                 {
-                    html = html.Replace(scriptTag, polyfillScript);
-                    File.WriteAllText(indexHtml, html);
+                    html = html.Replace("<head>", "<head>\n    " + polyfillScript);
                 }
+                // Make desktop fullscreen responsive instead of fixed 960x600
+                html = html.Replace("fullscreenContainer.style.width = \"960px\";", "fullscreenContainer.style.width = \"100%\";");
+                html = html.Replace("fullscreenContainer.style.height = \"600px\";", "fullscreenContainer.style.height = \"100%\";");
+                File.WriteAllText(indexHtml, html);
+            }
+
+            string styleCss = Path.Combine(OutputDir, "TemplateData", "style.css");
+            if (File.Exists(styleCss))
+            {
+                string css = File.ReadAllText(styleCss);
+                css = css.Replace("#unity-container.unity-desktop { left: 50%; top: 50%; transform: translate(-50%, -50%) }",
+                                  "#unity-container.unity-desktop { width: 100vw; height: 100vh; position: fixed; left: 0; top: 0; transform: none; display: flex; align-items: center; justify-content: center; background: #0e1217; }");
+                if (!css.Contains(".unity-desktop #unity-fullscreen-container"))
+                {
+                    css += "\n.unity-desktop #unity-fullscreen-container { width: 100%; height: 100%; max-width: 177.78vh; max-height: 56.25vw; position: relative; display: flex; align-items: center; justify-content: center; }\n";
+                }
+                File.WriteAllText(styleCss, css);
             }
 
             Debug.Log($"[BuildWebGL] Ready for Netlify Drop! Folder: {Path.GetFullPath(OutputDir)}");
