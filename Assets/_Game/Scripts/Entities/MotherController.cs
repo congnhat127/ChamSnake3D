@@ -109,6 +109,14 @@ namespace RongRanChamCham
             }
         }
 
+        private void OnDestroy()
+        {
+            if (BuffSystem.Instance != null)
+            {
+                BuffSystem.Instance.OnBuffApplied -= HandleBuffApplied;
+            }
+        }
+
         private void EnsureSockets()
         {
             if (socketHead == null) socketHead = transform.Find("Socket_Head");

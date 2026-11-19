@@ -236,45 +236,47 @@ namespace RongRanChamCham
                 }
             }
 
-            // Động tác chỉ hướng cực kỳ dứt khoát, uy lực và rõ nét trong không gian 3D
+            Vector3 worldBodyOffset = Vector3.zero;
+            Quaternion rotBodyOffset = Quaternion.identity;
+            Vector3 worldHandOffset = Vector3.zero;
+            Quaternion rotHandOffset = Quaternion.identity;
+
             switch (dir)
             {
                 case DuelDirection.Left:
-                    targetHunterBodyPos = defaultBodyPos + new Vector3(-0.75f, 0.15f, 0.35f);
-                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(0f, -55f, 15f);
-                    if (socketGrabHand != null)
-                    {
-                        targetHandPos = defaultHandPos + new Vector3(-0.85f, 0.30f, 0.65f);
-                        targetHandRot = defaultHandRot * Quaternion.Euler(20f, -90f, 40f);
-                    }
+                    // Thầy Thuốc nhoài người và chĩa gậy sang TRÁI màn hình (-X) nhắm thẳng vào Bé Út
+                    worldBodyOffset = new Vector3(-0.95f, 0.15f, 0f);
+                    rotBodyOffset = Quaternion.Euler(0f, 0f, 25f);
+                    worldHandOffset = new Vector3(-1.10f, 0.35f, 0f);
+                    rotHandOffset = Quaternion.Euler(20f, -90f, 40f);
                     break;
                 case DuelDirection.Right:
-                    targetHunterBodyPos = defaultBodyPos + new Vector3(0.75f, 0.15f, 0.35f);
-                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(0f, 55f, -15f);
-                    if (socketGrabHand != null)
-                    {
-                        targetHandPos = defaultHandPos + new Vector3(0.85f, 0.30f, 0.65f);
-                        targetHandRot = defaultHandRot * Quaternion.Euler(20f, 90f, -40f);
-                    }
+                    // Thầy Thuốc vung gậy ngược sang PHẢI màn hình (+X)
+                    worldBodyOffset = new Vector3(0.95f, 0.15f, 0f);
+                    rotBodyOffset = Quaternion.Euler(0f, 0f, -25f);
+                    worldHandOffset = new Vector3(1.10f, 0.35f, 0f);
+                    rotHandOffset = Quaternion.Euler(20f, 90f, -40f);
                     break;
-                case DuelDirection.Straight: // Chỉ Lên trời
-                    targetHunterBodyPos = defaultBodyPos + new Vector3(0f, 0.55f, -0.15f);
-                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(-35f, 0f, 0f);
-                    if (socketGrabHand != null)
-                    {
-                        targetHandPos = defaultHandPos + new Vector3(0f, 1.15f, 0.35f);
-                        targetHandRot = defaultHandRot * Quaternion.Euler(-85f, 0f, 0f);
-                    }
+                case DuelDirection.Straight: // Thầy Thuốc chỉ gậy vút thẳng LÊN trời (+Y)
+                    worldBodyOffset = new Vector3(0f, 0.65f, 0f);
+                    rotBodyOffset = Quaternion.Euler(-30f, 0f, 0f);
+                    worldHandOffset = new Vector3(0f, 1.35f, 0f);
+                    rotHandOffset = Quaternion.Euler(-85f, 0f, 0f);
                     break;
-                case DuelDirection.Down: // Chỉ Xuống đất
-                    targetHunterBodyPos = defaultBodyPos + new Vector3(0f, -0.45f, 0.45f);
-                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(45f, 0f, 0f);
-                    if (socketGrabHand != null)
-                    {
-                        targetHandPos = defaultHandPos + new Vector3(0f, -0.45f, 0.85f);
-                        targetHandRot = defaultHandRot * Quaternion.Euler(80f, 0f, 0f);
-                    }
+                case DuelDirection.Down: // Thầy Thuốc dộng gậy thẳng XUỐNG đất (-Y)
+                    worldBodyOffset = new Vector3(0f, -0.45f, 0f);
+                    rotBodyOffset = Quaternion.Euler(40f, 0f, 0f);
+                    worldHandOffset = new Vector3(0f, -0.55f, 0f);
+                    rotHandOffset = Quaternion.Euler(80f, 0f, 0f);
                     break;
+            }
+
+            targetHunterBodyPos = defaultBodyPos + transform.InverseTransformVector(worldBodyOffset);
+            targetHunterBodyRot = defaultBodyRot * rotBodyOffset;
+            if (socketGrabHand != null)
+            {
+                targetHandPos = defaultHandPos + transform.InverseTransformVector(worldHandOffset);
+                targetHandRot = defaultHandRot * rotHandOffset;
             }
         }
 
@@ -309,7 +311,7 @@ namespace RongRanChamCham
                 }
 
                 // If in Duel: Thầy Thuốc quay mặt trực diện vào bé Út để đấu QTE
-                if (GameManager.Instance.CurrentState == GameState.Duel)
+                if (GameManager.Instance.CurrentState == GameState.Duel || (ChamChamDuelManager.Instance != null && ChamChamDuelManager.Instance.IsDuelActive))
                 {
                     EnsureTargets();
                     EnsureDuelTransforms();
@@ -683,43 +685,60 @@ namespace RongRanChamCham
 
         private void HandleGrabExecution()
         {
-            grabWindupTimer -= Time.deltaTime;
-            if (grabWindupTimer <= 0f)
+            float dt = Time.deltaTime;
+            grabWindupTimer -= dt;
+
+            // Trong lúc lấy đà vồ: Thầy Thuốc nhoài người phi nhanh về phía trước (Lunge forward) để bắt kịp Bé Út
+            if (grabWindupTimer > 0f)
             {
-                // Physical Contact Resolution: Vồ phải chạm thật (Luật 4.1)
-                // Bàn tay Thầy Thuốc (socketGrabHand) chạm thân mục tiêu trong ngưỡng chạm theo GameBalanceConfig (1.05m).
-                float distToTarget = conUtTarget != null ? Vector3.Distance(transform.position, conUtTarget.transform.position) : 999f;
-                float currentGrabRange = GrabRange;
-                if (BuffSystem.Instance != null && BuffSystem.Instance.IsHunterGiantActive)
+                Vector3 lungeDir = transform.forward;
+                lungeDir.y = 0f;
+                if (controller != null && controller.enabled)
                 {
-                    currentGrabRange *= 1.30f;
+                    controller.Move(lungeDir * (MoveSpeed * 1.35f) * dt);
                 }
-
-                // Tâm thân Bé Út (chiều cao 1.3m -> tâm thân ở y = 0.65m)
-                Vector3 targetBodyPos = conUtTarget != null
-                    ? (conUtTarget.transform.position + Vector3.up * 0.65f)
-                    : (transform.position + transform.forward * 0.85f + Vector3.up * 0.65f);
-
-                Vector3 handPos = socketGrabHand != null
-                    ? socketGrabHand.position
-                    : (transform.position + transform.forward * 0.85f + Vector3.up * 0.85f);
-
-                float handDistToBody = Vector3.Distance(handPos, targetBodyPos);
-
-                // Facing check: Hunter must be facing Con Ut
-                Vector3 toUt = conUtTarget != null ? (conUtTarget.transform.position - transform.position) : Vector3.forward;
-                toUt.y = 0f;
-                float grabFacingDot = toUt.sqrMagnitude > 0.01f ? Vector3.Dot(transform.forward, toUt.normalized) : 0f;
-
-                bool isBlocked = false;
-                // Mẹ chỉ cản phá thành công nếu Mẹ đang chủ động Dang Tay Cản (IsFacingLocked) VÀ đứng chắn giữa Thầy và Bé Út
-                if (cachedMotherCtrl != null && cachedMotherCtrl.IsFacingLocked)
+                else
                 {
-                    isBlocked = IsMotherBlockingLineOfSight();
+                    transform.position += lungeDir * (MoveSpeed * 1.35f) * dt;
                 }
+                return;
+            }
 
-                // Nhận diện va chạm vật lý chân thực: Chạm tay (<= 1.05m) HOẶC thân Thầy chạm sát Bé Út (<= 1.45m)
-                bool hasDirectContact = (handDistToBody <= currentGrabRange || distToTarget <= 1.45f) && grabFacingDot >= 0.25f;
+            // Physical Contact Resolution: Vồ phải chạm thật (Luật 4.1)
+            // Bàn tay Thầy Thuốc hoặc thân mình Thầy chạm tới thân mục tiêu trong sải tay vồ (2.0m)
+            float distToTarget = conUtTarget != null ? Vector3.Distance(transform.position, conUtTarget.transform.position) : 999f;
+            float currentGrabRange = GrabRange * 1.45f; // Sải tay vồ khi nhoài người
+            if (BuffSystem.Instance != null && BuffSystem.Instance.IsHunterGiantActive)
+            {
+                currentGrabRange *= 1.30f;
+            }
+
+            // Tâm thân Bé Út (chiều cao 1.3m -> tâm thân ở y = 0.65m)
+            Vector3 targetBodyPos = conUtTarget != null
+                ? (conUtTarget.transform.position + Vector3.up * 0.65f)
+                : (transform.position + transform.forward * 0.85f + Vector3.up * 0.65f);
+
+            Vector3 handPos = socketGrabHand != null
+                ? socketGrabHand.position
+                : (transform.position + transform.forward * 0.85f + Vector3.up * 0.85f);
+
+            float handDistToBody = Vector3.Distance(handPos, targetBodyPos);
+
+            // Facing check: Hunter must be generally facing Con Ut
+            Vector3 toUt = conUtTarget != null ? (conUtTarget.transform.position - transform.position) : Vector3.forward;
+            toUt.y = 0f;
+            float grabFacingDot = toUt.sqrMagnitude > 0.01f ? Vector3.Dot(transform.forward, toUt.normalized) : 0f;
+
+            bool isBlocked = false;
+            // Mẹ chỉ cản phá thành công nếu Mẹ đang chủ động Dang Tay Cản (IsFacingLocked) VÀ đứng chắn giữa Thầy và Bé Út
+            var motherCtrl = cachedMotherCtrl != null ? cachedMotherCtrl : (motherTransform != null ? (cachedMotherCtrl = motherTransform.GetComponent<MotherController>()) : null);
+            if (motherCtrl != null && motherCtrl.IsFacingLocked)
+            {
+                isBlocked = IsMotherBlockingLineOfSight();
+            }
+
+            // Nhận diện va chạm vật lý chân thực: Sải tay vồ tới (<= 1.95m) HOẶC thân Thầy áp sát Bé Út (<= 2.05m)
+            bool hasDirectContact = (handDistToBody <= currentGrabRange || distToTarget <= 2.05f) && grabFacingDot >= 0.15f;
 
                 if (isBlocked)
                 {

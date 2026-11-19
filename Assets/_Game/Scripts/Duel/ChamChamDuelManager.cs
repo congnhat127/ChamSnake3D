@@ -296,6 +296,9 @@ namespace RongRanChamCham
                     yield return null;
                 }
 
+                // Giữ nguyên tư thế chỉ hướng và né đòn 0.75s để người chơi thấy rõ mồn một chuyển động
+                yield return new WaitForSeconds(0.75f);
+
                 // Kiểm tra kết quả hiệp: BẮT BUỘC người chơi phải chủ động bấm né và hướng né KHÁC hướng Thầy Thuốc
                 bool roundWon = hasUserChosen && (playerChoice != hunterChoice);
 

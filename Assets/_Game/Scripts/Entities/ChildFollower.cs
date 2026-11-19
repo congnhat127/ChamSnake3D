@@ -125,7 +125,8 @@ namespace RongRanChamCham
                 proceduralAnimator.SetCelebrationMode(isVictory, isGameOver);
             }
 
-            bool isDuel = GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.Duel;
+            bool isDuel = (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.Duel) ||
+                          (ChamChamDuelManager.Instance != null && ChamChamDuelManager.Instance.IsDuelActive);
 
             if (HasAnimator)
             {
@@ -217,35 +218,41 @@ namespace RongRanChamCham
         {
             EnsureSockets();
             TriggerDodge(dir);
+
+            Vector3 worldOffset = Vector3.zero;
+            Quaternion rotOffset = Quaternion.identity;
+            Vector3 scaleOffset = defaultBodyScale;
+
             switch (dir)
             {
                 case DuelDirection.Left:
-                    // Nhảy vọt dứt khoát sang Trái 1.15m, nghiêng người 38°
-                    targetBodyPos = defaultBodyPos + new Vector3(-1.15f, 0.45f, 0f);
-                    targetBodyRot = defaultBodyRot * Quaternion.Euler(0f, -25f, 38f);
-                    targetHeadRot = defaultHeadRot * Quaternion.Euler(0f, -35f, 25f);
-                    targetBodyScale = defaultBodyScale;
+                    // Nhảy vọt sang TRÁI màn hình (-X) 1.25m, bay lên một chút
+                    worldOffset = new Vector3(-1.25f, 0.40f, 0f);
+                    rotOffset = Quaternion.Euler(0f, 0f, 35f);
+                    scaleOffset = defaultBodyScale;
                     break;
                 case DuelDirection.Right:
-                    // Nhảy vọt dứt khoát sang Phải 1.15m, nghiêng người -38°
-                    targetBodyPos = defaultBodyPos + new Vector3(1.15f, 0.45f, 0f);
-                    targetBodyRot = defaultBodyRot * Quaternion.Euler(0f, 25f, -38f);
-                    targetHeadRot = defaultHeadRot * Quaternion.Euler(0f, 35f, -25f);
-                    targetBodyScale = defaultBodyScale;
+                    // Nhảy vọt luồn sang PHẢI màn hình (+X) 1.25m
+                    worldOffset = new Vector3(1.25f, 0.35f, 0f);
+                    rotOffset = Quaternion.Euler(0f, 0f, -35f);
+                    scaleOffset = defaultBodyScale;
                     break;
-                case DuelDirection.Straight: // Nhảy vổng vút lên không trung 1.35m
-                    targetBodyPos = defaultBodyPos + new Vector3(0f, 1.35f, -0.20f);
-                    targetBodyRot = defaultBodyRot * Quaternion.Euler(-30f, 0f, 0f);
-                    targetHeadRot = defaultHeadRot * Quaternion.Euler(-45f, 0f, 0f);
-                    targetBodyScale = new Vector3(defaultBodyScale.x * 0.80f, defaultBodyScale.y * 1.35f, defaultBodyScale.z * 0.80f);
+                case DuelDirection.Straight: // Nhảy vút LÊN cao (+Y) 1.45m
+                    worldOffset = new Vector3(0f, 1.45f, 0f);
+                    rotOffset = Quaternion.Euler(-25f, 0f, 0f);
+                    scaleOffset = new Vector3(defaultBodyScale.x * 0.85f, defaultBodyScale.y * 1.35f, defaultBodyScale.z * 0.85f);
                     break;
-                case DuelDirection.Down: // Thu mình bẹp dí sát đất (Pancake Squash)
-                    targetBodyPos = defaultBodyPos + new Vector3(0f, -0.42f, 0.15f);
-                    targetBodyRot = defaultBodyRot * Quaternion.Euler(45f, 0f, 0f);
-                    targetHeadRot = defaultHeadRot * Quaternion.Euler(55f, 0f, 0f);
-                    targetBodyScale = new Vector3(defaultBodyScale.x * 1.55f, defaultBodyScale.y * 0.38f, defaultBodyScale.z * 1.55f);
+                case DuelDirection.Down: // Cúi rạp bẹp dí XUỐNG sàn (-Y)
+                    worldOffset = new Vector3(0f, -0.42f, 0f);
+                    rotOffset = Quaternion.Euler(35f, 0f, 0f);
+                    scaleOffset = new Vector3(defaultBodyScale.x * 1.55f, defaultBodyScale.y * 0.35f, defaultBodyScale.z * 1.55f);
                     break;
             }
+
+            Vector3 localOffset = transform.InverseTransformVector(worldOffset);
+            targetBodyPos = defaultBodyPos + localOffset;
+            targetBodyRot = defaultBodyRot * rotOffset;
+            targetBodyScale = scaleOffset;
         }
 
         public void ResetDuelStance()

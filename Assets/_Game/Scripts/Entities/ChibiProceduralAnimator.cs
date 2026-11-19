@@ -127,6 +127,13 @@ namespace RongRanChamCham
             float dt = Time.deltaTime;
             if (dt <= 0f) return;
 
+            // Trong chế độ Đấu Chăm Chăm Chăm: Nhường toàn quyền điều khiển diễn hoạt 3D né đòn/chỉ hướng cho HunterAI và ChildFollower
+            if ((GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.Duel) ||
+                (ChamChamDuelManager.Instance != null && ChamChamDuelManager.Instance.IsDuelActive))
+            {
+                return;
+            }
+
             // 1. Calculate horizontal movement speed
             Vector3 vel = characterController != null ? characterController.velocity : Vector3.zero;
             vel.y = 0f;

@@ -15,7 +15,7 @@ namespace RongRanChamCham
 
         [Header("Thông số phân thân")]
         [SerializeField] private float lifetime = 6.0f;
-        [SerializeField] private float runSpeed = 6.2f;
+        [SerializeField] private float runSpeed = 5.8f;
         [SerializeField] private float stunDurationOnExplode = 1.5f;
         [SerializeField] private float linkSpacing = 0.72f;
 
@@ -24,7 +24,6 @@ namespace RongRanChamCham
         private float lifeTimer = 0f;
         private bool isVanishing = false;
 
-        private GameObject phantomMotherGo;
         private readonly List<GameObject> phantomChildren = new List<GameObject>();
         private readonly List<Vector3> chainHistory = new List<Vector3>();
 
@@ -79,7 +78,6 @@ namespace RongRanChamCham
             GameObject cloneGo = new GameObject("Decoy_Phantom_SnakeChain");
             cloneGo.transform.SetPositionAndRotation(pos, rot);
             var decoy = cloneGo.AddComponent<DecoyCloneActor>();
-            decoy.InitializeSimple(templateVisual);
             ActiveClone = decoy;
             return decoy;
         }
@@ -91,88 +89,89 @@ namespace RongRanChamCham
             characterController.height = 1.4f;
             characterController.center = new Vector3(0f, 0.7f, 0f);
 
-            // 1. Nhân bản Rắn Mẹ Ảo (Giữ nguyên trang phục áo đỏ, nón lá, tóc búi chuẩn mực)
-            phantomMotherGo = CloneVisual(realMother.gameObject, transform);
-            phantomMotherGo.name = "Phantom_Mother";
-            phantomMotherGo.transform.localPosition = Vector3.zero;
-            phantomMotherGo.transform.localRotation = Quaternion.identity;
+            // 1. Sao chép CHỈ MESH 3D của Rắn Mẹ (Tuyệt đối không nhân bản MotherController script để tránh xung đột input/null reference)
+            CloneVisualMeshOnly(realMother.gameObject, transform);
 
-            // 2. Nhân bản toàn bộ Đàn Con Ảo (vị trí trùng khít đàn con thật lúc tách ra)
+            // 2. Hướng rẽ tách đàn độc lập: Tách chéo góc 70 - 85 độ so với hướng đàn thật đang chạy
+            float branchAngle = Random.value > 0.5f ? Random.Range(65f, 85f) : Random.Range(-85f, -65f);
+            moveDirection = (Quaternion.Euler(0f, branchAngle, 0f) * realMother.transform.forward).normalized;
+            transform.rotation = Quaternion.LookRotation(moveDirection);
+
+            // 3. Khởi tạo toàn bộ Đàn Con Ảo xếp nối đuôi ngay sau Mẹ Ảo theo hàng thẳng ban đầu
             if (realSnake != null && realSnake.Children != null)
             {
-                for (int i = 0; i < realSnake.Children.Count; i++)
+                int childCount = realSnake.Children.Count;
+                for (int i = 0; i < childCount; i++)
                 {
                     var realChild = realSnake.Children[i];
                     if (realChild == null || !realChild.gameObject.activeInHierarchy) continue;
 
-                    GameObject pChildGo = CloneVisual(realChild.gameObject, null);
-                    pChildGo.name = $"Phantom_Child_{i}";
-                    pChildGo.transform.SetPositionAndRotation(realChild.transform.position, realChild.transform.rotation);
+                    Vector3 initChildPos = transform.position - (moveDirection * ((i + 1) * linkSpacing));
+                    initChildPos.y = 0f;
+
+                    GameObject pChildGo = new GameObject($"Phantom_Child_{i}");
+                    pChildGo.transform.SetPositionAndRotation(initChildPos, transform.rotation);
+
+                    // Sao chép chỉ Mesh 3D của con
+                    CloneVisualMeshOnly(realChild.gameObject, pChildGo.transform);
+
+                    // Nếu là Bé Út (con cuối cùng): Sao chép cả Vương Miện vàng
+                    if (i == childCount - 1)
+                    {
+                        var crown = realChild.transform.Find("Socket_Crown");
+                        if (crown != null)
+                        {
+                            GameObject phantomCrown = Instantiate(crown.gameObject, pChildGo.transform);
+                            phantomCrown.name = "Socket_Crown";
+                            phantomCrown.transform.localPosition = crown.localPosition;
+                            phantomCrown.transform.localRotation = crown.localRotation;
+                            phantomCrown.transform.localScale = crown.localScale;
+                            phantomCrown.SetActive(true);
+                        }
+                    }
+
                     phantomChildren.Add(pChildGo);
                 }
             }
 
-            // 3. Hướng rẽ tách đàn: Tách chéo góc 70 - 90 độ so với hướng đàn thật đang chạy
-            float branchAngle = Random.value > 0.5f ? Random.Range(65f, 90f) : Random.Range(-90f, -65f);
-            moveDirection = (Quaternion.Euler(0f, branchAngle, 0f) * realMother.transform.forward).normalized;
-
-            // Khởi tạo lịch sử vị trí cho IK nối đuôi
+            // Điền trước lịch sử vị trí cho cả đàn nối đuôi nhau liền mạch
             chainHistory.Clear();
-            chainHistory.Add(transform.position);
+            for (int h = 0; h < 60; h++)
+            {
+                chainHistory.Add(transform.position - (moveDirection * (h * 0.12f)));
+            }
 
-            // Hiệu ứng khói tách đàn ma thuật
-            CreatePoofFX(transform.position, new Color(1f, 0.85f, 0.2f, 0.8f));
+            // Hiệu ứng pháo khói tách đàn vàng kim đẹp mắt
+            CreatePoofFX(transform.position, new Color(1f, 0.85f, 0.2f, 0.6f));
             AudioManager.Instance?.PlaySFX(SoundType.Whoosh);
         }
 
-        private void InitializeSimple(GameObject template)
+        private void CloneVisualMeshOnly(GameObject sourceOwner, Transform parent)
         {
-            characterController = gameObject.AddComponent<CharacterController>();
-            characterController.radius = 0.45f;
-            characterController.height = 1.4f;
-            characterController.center = new Vector3(0f, 0.7f, 0f);
-
-            if (template != null)
+            Transform visualTransform = sourceOwner.transform.Find("Model_Body");
+            if (visualTransform == null)
             {
-                phantomMotherGo = CloneVisual(template, transform);
-            }
-            Vector3 randomOffset = new Vector3(Random.Range(-1f, 1f), 0f, Random.Range(-1f, 1f)).normalized;
-            moveDirection = (transform.forward + randomOffset).normalized;
-        }
-
-        private GameObject CloneVisual(GameObject source, Transform parent)
-        {
-            GameObject clone = Instantiate(source, parent);
-            if (parent != null)
-            {
-                clone.transform.localPosition = Vector3.zero;
-                clone.transform.localRotation = Quaternion.identity;
+                var rend = sourceOwner.GetComponentInChildren<Renderer>();
+                if (rend != null) visualTransform = rend.transform;
             }
 
-            // Xóa ngay lập tức BuffVisualController để không bao giờ sinh ra vệt tím/vòng sáng lỗi
-            var buffVisuals = clone.GetComponentsInChildren<BuffVisualController>(true);
-            foreach (var bv in buffVisuals)
-            {
-                if (bv != null) DestroyImmediate(bv);
-            }
+            if (visualTransform == null) return;
 
-            // Xóa bỏ các Script điều khiển thật và Collider để tránh xung đột vật lý
-            var monos = clone.GetComponentsInChildren<MonoBehaviour>(true);
-            foreach (var m in monos)
-            {
-                if (m != null && !(m is ChibiProceduralAnimator))
-                {
-                    DestroyImmediate(m);
-                }
-            }
+            GameObject meshGo = Instantiate(visualTransform.gameObject, parent);
+            meshGo.name = visualTransform.name;
+            meshGo.transform.localPosition = visualTransform.localPosition;
+            meshGo.transform.localRotation = visualTransform.localRotation;
+            meshGo.transform.localScale = visualTransform.localScale;
 
-            var colliders = clone.GetComponentsInChildren<Collider>(true);
-            foreach (var c in colliders)
-            {
-                DestroyImmediate(c);
-            }
+            // Xóa bỏ toàn bộ Script, Animator và Collider trên Mesh để chỉ giữ lại hình thể visual 3D
+            var animators = meshGo.GetComponentsInChildren<Animator>(true);
+            foreach (var a in animators) DestroyImmediate(a);
 
-            return clone;
+            var monos = meshGo.GetComponentsInChildren<MonoBehaviour>(true);
+            foreach (var m in monos) DestroyImmediate(m);
+
+            var colliders = meshGo.GetComponentsInChildren<Collider>(true);
+            foreach (var c in colliders) DestroyImmediate(c);
         }
 
         private void Update()
@@ -182,41 +181,53 @@ namespace RongRanChamCham
             float dt = Time.deltaTime;
             lifeTimer += dt;
 
-            // 1. Rắn Mẹ Ảo điều hướng luồn lách thông minh trên sân đấu
-            Vector3 move = moveDirection * runSpeed * dt;
-            move.y = -9.81f * dt;
-            if (characterController != null)
-            {
-                characterController.Move(move);
-            }
-
-            // Giữ trong ranh giới sân đấu tròn
+            // 1. Rắn Mẹ Ảo tự động điều hướng hoàn toàn độc lập (Random AI Wanderer)
             Vector3 curPos = transform.position;
             curPos.y = 0f;
             float distFromCenter = curPos.magnitude;
-            if (distFromCenter > 8.5f)
+
+            if (distFromCenter > 7.5f)
             {
                 // Bẻ lái mềm mại quay lại tâm sân khi chạm rìa
                 Vector3 toCenter = (-curPos).normalized;
-                moveDirection = Vector3.Slerp(moveDirection, toCenter, dt * 6f).normalized;
+                moveDirection = Vector3.Slerp(moveDirection, toCenter, dt * 5.0f).normalized;
             }
-            else if (Random.value < 0.025f)
+            else
             {
-                // Uốn lượn đổi hướng tự nhiên như đàn rồng rắn
-                float steerAngle = Random.Range(-45f, 45f);
-                moveDirection = (Quaternion.Euler(0f, steerAngle, 0f) * moveDirection).normalized;
+                // Tự động lượn sóng nhịp nhàng như đàn rắn đang trườn
+                float wave = Mathf.Sin(Time.time * 2.5f) * 25f * dt;
+                moveDirection = (Quaternion.Euler(0f, wave, 0f) * moveDirection).normalized;
+            }
+
+            Vector3 move = moveDirection * runSpeed * dt;
+            move.y = -9.81f * dt;
+            if (characterController != null && characterController.enabled)
+            {
+                characterController.Move(move);
+            }
+            else
+            {
+                transform.position += moveDirection * runSpeed * dt;
             }
 
             transform.position = ArenaBoundary.ClampToArena(transform.position, 0.5f);
 
-            // Quay mặt Rắn Mẹ Ảo theo hướng di chuyển
+            // Quay mặt Rắn Mẹ Ảo theo hướng di chuyển độc lập
             Vector3 flatDir = moveDirection; flatDir.y = 0f;
             if (flatDir.sqrMagnitude > 0.01f)
             {
-                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(flatDir), dt * 12f);
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(flatDir), dt * 14f);
             }
 
-            // 2. Đàn Con Ảo nối đuôi nhau luồn lách bám theo Mẹ Ảo
+            // Ghi nhận lịch sử vị trí cho đàn con ảo bám theo
+            chainHistory.Insert(0, transform.position);
+            int maxHistory = 120;
+            if (chainHistory.Count > maxHistory)
+            {
+                chainHistory.RemoveAt(chainHistory.Count - 1);
+            }
+
+            // 2. Đàn Con Ảo nối đuôi nhau luồn lách bám theo Mẹ Ảo theo vết đường đi
             UpdatePhantomChildrenFollow(dt);
 
             // Hết thời gian hiệu lực (6s) -> Tự động tan biến
@@ -230,42 +241,47 @@ namespace RongRanChamCham
         {
             if (phantomChildren == null || phantomChildren.Count == 0) return;
 
-            // Cập nhật vị trí từng đốt con bám theo đốt phía trước
-            Vector3 leaderPos = transform.position;
-            Quaternion leaderRot = transform.rotation;
-
             for (int i = 0; i < phantomChildren.Count; i++)
             {
                 var child = phantomChildren[i];
                 if (child == null) continue;
 
-                Vector3 targetNode = leaderPos - (leaderRot * Vector3.forward * linkSpacing);
-                targetNode.y = 0f;
+                float desiredDist = (i + 1) * linkSpacing;
+                Vector3 targetPos = SampleHistoryPosition(desiredDist);
+                targetPos.y = 0f;
 
                 // Di chuyển mượt mà tới vị trí mục tiêu
-                Vector3 childPos = child.transform.position;
-                Vector3 toTarget = targetNode - childPos;
-                toTarget.y = 0f;
-
-                float dist = toTarget.magnitude;
-                if (dist > 0.05f)
-                {
-                    childPos = Vector3.MoveTowards(childPos, targetNode, runSpeed * dt * 1.25f);
-                }
-                childPos = ArenaBoundary.ClampToArena(childPos, 0.45f);
-                child.transform.position = childPos;
+                child.transform.position = Vector3.Lerp(child.transform.position, targetPos, dt * 18f);
 
                 // Quay mặt theo hướng người phía trước
-                Vector3 faceDir = leaderPos - childPos;
+                Vector3 leaderPos = (i == 0) ? transform.position : phantomChildren[i - 1].transform.position;
+                Vector3 faceDir = leaderPos - child.transform.position;
                 faceDir.y = 0f;
                 if (faceDir.sqrMagnitude > 0.01f)
                 {
-                    child.transform.rotation = Quaternion.Slerp(child.transform.rotation, Quaternion.LookRotation(faceDir), dt * 14f);
+                    child.transform.rotation = Quaternion.Slerp(child.transform.rotation, Quaternion.LookRotation(faceDir), dt * 16f);
                 }
-
-                leaderPos = childPos;
-                leaderRot = child.transform.rotation;
             }
+        }
+
+        private Vector3 SampleHistoryPosition(float targetDistance)
+        {
+            if (chainHistory.Count == 0) return transform.position;
+            if (chainHistory.Count == 1) return chainHistory[0];
+
+            float accumulated = 0f;
+            for (int i = 0; i < chainHistory.Count - 1; i++)
+            {
+                float segment = Vector3.Distance(chainHistory[i], chainHistory[i + 1]);
+                if (accumulated + segment >= targetDistance)
+                {
+                    float remainder = targetDistance - accumulated;
+                    float t = segment > 0.001f ? (remainder / segment) : 0f;
+                    return Vector3.Lerp(chainHistory[i], chainHistory[i + 1], t);
+                }
+                accumulated += segment;
+            }
+            return chainHistory[chainHistory.Count - 1];
         }
 
         public void Vanish(bool caughtByHunter)
@@ -273,7 +289,7 @@ namespace RongRanChamCham
             if (isVanishing) return;
             isVanishing = true;
 
-            // Hiệu ứng khói vàng tan biến nhẹ nhàng (không dùng khối cầu tím)
+            // Hiệu ứng khói vàng tan biến nhẹ nhàng
             CreatePoofFX(transform.position, new Color(1f, 0.9f, 0.4f, 0.6f));
 
             AudioManager.Instance?.PlaySFX(SoundType.ShieldBlock);
