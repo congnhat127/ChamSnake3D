@@ -779,12 +779,11 @@ namespace RongRanChamCham
                     Debug.Log($"[HunterAI] Vồ hụt trong không khí! (Hand dist: {handDistToBody:F2}m > {currentGrabRange:F2}m, Body dist: {distToTarget:F2}m)");
                 }
 
-                // Cooldown
-                nextGrabAvailableTime = Time.time + GrabCooldown;
-                isPerformingGrab = false;
-                if (navMeshAgent != null && navMeshAgent.isOnNavMesh) navMeshAgent.isStopped = false;
-                if (swipeVfxVisual != null) swipeVfxVisual.SetActive(false);
-            }
+            // Cooldown
+            nextGrabAvailableTime = Time.time + GrabCooldown;
+            isPerformingGrab = false;
+            if (navMeshAgent != null && navMeshAgent.isOnNavMesh) navMeshAgent.isStopped = false;
+            if (swipeVfxVisual != null) swipeVfxVisual.SetActive(false);
         }
 
         public void ResetAfterDuel(float grabCooldownSeconds = 5.0f, float freezeSeconds = 2.0f)
