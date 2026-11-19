@@ -51,8 +51,13 @@ namespace RongRanChamCham
         private GameObject modalPause;
         private GameObject modalRules;
         private GameObject modalMatchEnd;
+        private Image scrimMatchEnd;
+        private GameObject endDialogBox;
+        private GameObject victoryTopRibbon;
+        private Text txtVictoryRibbon;
         private Text txtEndTitle;
         private Text txtEndSubtitle;
+        private Coroutine coroutineMatchEnd;
         private GameObject modalShowcase;
 
         // State & Tracking
@@ -258,12 +263,14 @@ namespace RongRanChamCham
             AddShadow(txtTimer, Color.black, new Vector2(2, -2));
 
             // Below Timer: Instruction Ribbon
-            GameObject banner = CreateUiPanel(panelGameplayHud, "InstructionBanner", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -118), new Vector2(860, 52));
+            GameObject banner = CreateUiPanel(panelGameplayHud, "InstructionBanner", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -118), new Vector2(920, 56));
             Image imgBanner = banner.AddComponent<Image>();
             imgBanner.sprite = UIThemeFactory.GetInstructionBannerSprite();
             imgBanner.type = Image.Type.Sliced;
 
-            txtInstruction = CreateText(banner, "Txt_Inst", "GIỮ [SPACE] HOẶC NÚT KHIÊN ĐỂ MẸ ĐANG TAY CẢN THẦY THUỐC!", 19, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+            txtInstruction = CreateText(banner, "Txt_Inst", "GIỮ [SPACE] HOẶC NÚT KHIÊN ĐỂ MẸ ĐANG TAY CẢN THẦY THUỐC!", 16, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+            txtInstruction.horizontalOverflow = HorizontalWrapMode.Wrap;
+            txtInstruction.verticalOverflow = VerticalWrapMode.Truncate;
             AddShadow(txtInstruction, Color.black, new Vector2(2, -2));
 
             // Top-Right: Pause Button
@@ -416,22 +423,43 @@ namespace RongRanChamCham
             modalRules.SetActive(false);
 
             // Modal Match End (Victory / Defeat)
-            modalMatchEnd = CreateModalBox(panelModals, "Modal_MatchEnd", new Vector2(640, 480), "");
-            Transform endBody = modalMatchEnd.transform.Find("DialogBox");
+            modalMatchEnd = CreateUiPanel(panelModals, "Modal_MatchEnd", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
-            GameObject titleEndBox = CreateUiPanel(endBody.gameObject, "EndTitleBox", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -60), new Vector2(580, 80));
-            txtEndTitle = CreateText(titleEndBox, "Txt_EndTitle", "CHIẾN THẮNG!", 44, FontStyle.Bold, UIThemeFactory.ColGoldBright, TextAnchor.MiddleCenter);
+            // Scrim (translucent so dancers are clearly visible)
+            GameObject endScrimGo = CreateUiPanel(modalMatchEnd, "Scrim", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            scrimMatchEnd = endScrimGo.AddComponent<Image>();
+            scrimMatchEnd.color = new Color(0f, 0f, 0f, 0.15f);
+
+            // Top Victory Celebration Ribbon
+            victoryTopRibbon = CreateUiPanel(modalMatchEnd, "VictoryTopRibbon", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -75), new Vector2(820, 68));
+            Image imgVicRibbon = victoryTopRibbon.AddComponent<Image>();
+            imgVicRibbon.sprite = UIThemeFactory.GetInstructionBannerSprite();
+            imgVicRibbon.type = Image.Type.Sliced;
+            txtVictoryRibbon = CreateText(victoryTopRibbon, "Txt_VicRibbon", "✦ CHIẾN THẮNG HUY HOÀNG ✦", 28, FontStyle.Bold, UIThemeFactory.ColGoldBright, TextAnchor.MiddleCenter);
+            AddShadow(txtVictoryRibbon, Color.black, new Vector2(2, -2));
+            victoryTopRibbon.SetActive(false);
+
+            // Bottom Dialog Box (Placed at bottom, leaving center wide open for dancing!)
+            endDialogBox = CreateUiPanel(modalMatchEnd, "DialogBox", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 95), new Vector2(760, 150));
+            Image imgEndDialog = endDialogBox.AddComponent<Image>();
+            imgEndDialog.sprite = UIThemeFactory.GetFolkPanelSprite();
+            imgEndDialog.type = Image.Type.Sliced;
+
+            GameObject titleEndBox = CreateUiPanel(endDialogBox, "EndTitleBox", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -28), new Vector2(740, 40));
+            txtEndTitle = CreateText(titleEndBox, "Txt_EndTitle", "✦ CHIẾN THẮNG HUY HOÀNG ✦", 26, FontStyle.Bold, UIThemeFactory.ColGoldBright, TextAnchor.MiddleCenter);
+            txtEndTitle.horizontalOverflow = HorizontalWrapMode.Overflow;
             AddShadow(txtEndTitle, Color.black, new Vector2(2, -2));
 
-            txtEndSubtitle = CreateText(endBody.gameObject, "Txt_EndSubtitle", "Bạn đã bảo vệ trọn vẹn đàn con!", 22, FontStyle.Normal, Color.white, TextAnchor.MiddleCenter);
-            txtEndSubtitle.rectTransform.anchoredPosition = new Vector2(0, 40);
+            txtEndSubtitle = CreateText(endDialogBox, "Txt_EndSubtitle", "Bạn đã bảo vệ trọn vẹn đàn con!", 17, FontStyle.Normal, UIThemeFactory.ColTextIvory, TextAnchor.MiddleCenter);
+            txtEndSubtitle.rectTransform.anchoredPosition = new Vector2(0, 16);
+            txtEndSubtitle.rectTransform.sizeDelta = new Vector2(720, 30);
 
-            CreateCardButton(endBody.gameObject, "Btn_PlayAgain", new Vector2(0.5f, 0.5f), new Vector2(0, -40), new Vector2(300, 72), "🔄 CHƠI LẠI", () =>
+            CreateCardButton(endDialogBox, "Btn_PlayAgain", new Vector2(0.5f, 0f), new Vector2(-140, 38), new Vector2(240, 50), "🔄 CHƠI LẠI", () =>
             {
                 modalMatchEnd.SetActive(false);
                 GameManager.Instance?.StartMatch();
             });
-            CreateCardButton(endBody.gameObject, "Btn_BackMenu", new Vector2(0.5f, 0.5f), new Vector2(0, -125), new Vector2(300, 72), "🏠 VỀ MENU", () =>
+            CreateCardButton(endDialogBox, "Btn_BackMenu", new Vector2(0.5f, 0f), new Vector2(140, 38), new Vector2(240, 50), "🏠 VỀ MENU", () =>
             {
                 modalMatchEnd.SetActive(false);
                 GameManager.Instance?.ShowMainMenu();
@@ -637,20 +665,55 @@ namespace RongRanChamCham
         private void ShowEndGameModal(bool victory)
         {
             if (modalMatchEnd == null) return;
-            modalMatchEnd.SetActive(true);
+            if (coroutineMatchEnd != null) StopCoroutine(coroutineMatchEnd);
+            coroutineMatchEnd = StartCoroutine(CoShowEndGameModal(victory));
+        }
 
-            if (txtEndTitle != null)
+        private IEnumerator CoShowEndGameModal(bool victory)
+        {
+            modalMatchEnd.SetActive(true);
+            if (endDialogBox != null) endDialogBox.SetActive(false);
+
+            if (victory)
             {
-                txtEndTitle.text = victory ? "✦ CHIẾN THẮNG HUY HOÀNG ✦" : "BÉ ÚT ĐÃ BỊ BẮT!";
-                txtEndTitle.color = victory ? UIThemeFactory.ColGoldBright : UIThemeFactory.ColCinnabarRed;
+                if (scrimMatchEnd != null) scrimMatchEnd.color = new Color(0f, 0f, 0f, 0.12f);
+                if (victoryTopRibbon != null)
+                {
+                    victoryTopRibbon.SetActive(true);
+                    if (txtVictoryRibbon != null) txtVictoryRibbon.text = "✦ CHIẾN THẮNG HUY HOÀNG ✦";
+                }
+                if (txtEndTitle != null)
+                {
+                    txtEndTitle.text = "✦ CHIẾN THẮNG HUY HOÀNG ✦";
+                    txtEndTitle.color = UIThemeFactory.ColGoldBright;
+                }
+                if (txtEndSubtitle != null)
+                {
+                    int c = GameManager.Instance != null ? GameManager.Instance.RemainingChildren : 3;
+                    txtEndSubtitle.text = $"Tuyệt vời! Bạn đã bảo vệ trọn vẹn {c} bé rắn con an toàn!";
+                }
+
+                // Chờ 2.8s cho người chơi tận hưởng trọn vẹn màn nhảy ăn mừng tưng bừng!
+                yield return new WaitForSeconds(2.8f);
             }
-            if (txtEndSubtitle != null)
+            else
             {
-                int c = GameManager.Instance != null ? GameManager.Instance.RemainingChildren : 0;
-                txtEndSubtitle.text = victory
-                    ? $"Tuyệt vời! Bạn đã bảo vệ trọn vẹn {c} bé rắn con an toàn!"
-                    : "Thầy Thuốc đã tóm được Bé Út. Hãy phối hợp nhịp nhàng hơn nhé!";
+                if (scrimMatchEnd != null) scrimMatchEnd.color = new Color(0f, 0f, 0f, 0.45f);
+                if (victoryTopRibbon != null) victoryTopRibbon.SetActive(false);
+                if (txtEndTitle != null)
+                {
+                    txtEndTitle.text = "BÉ ÚT ĐÃ BỊ BẮT!";
+                    txtEndTitle.color = UIThemeFactory.ColCinnabarRed;
+                }
+                if (txtEndSubtitle != null)
+                {
+                    txtEndSubtitle.text = "Thầy Thuốc đã tóm được Bé Út. Hãy phối hợp nhịp nhàng hơn nhé!";
+                }
+
+                yield return new WaitForSeconds(1.0f);
             }
+
+            if (endDialogBox != null) endDialogBox.SetActive(true);
         }
 
         private void OpenShowcaseModal()

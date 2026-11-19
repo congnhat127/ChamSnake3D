@@ -47,15 +47,16 @@ namespace RongRanChamCham
         private float TurnSpeed => balanceConfig != null ? balanceConfig.motherTurnSpeed : GameConstants.MotherTurnSpeed;
         private float ArenaRadius => balanceConfig != null ? balanceConfig.arenaRadius : GameConstants.ArenaRadius;
 
-        private bool HasAnimator => animator != null && animator.runtimeAnimatorController != null;
+        private bool HasAnimator => animator != null && animator.isActiveAndEnabled && animator.runtimeAnimatorController != null && animator.isInitialized;
 
         private void Awake()
         {
             characterController = GetComponent<CharacterController>();
             animator = GetComponent<Animator>();
-            if (animator != null && animator.runtimeAnimatorController == null)
+            if (animator != null)
             {
                 animator.enabled = false;
+                animator = null;
             }
             proceduralAnim = GetComponent<ChibiProceduralAnimator>();
         }

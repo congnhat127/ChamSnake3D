@@ -16,6 +16,8 @@ namespace RongRanChamCham
         [SerializeField] private Transform socketHandR;
         [SerializeField] private Transform bodyVisual;
 
+        public Transform BodyVisual => bodyVisual;
+
         [Header("Pitter-Patter Step Parameters")]
         [Tooltip("Step cycle frequency (steps per second multiplier)")]
         [SerializeField] private float stepFrequency = 14f;
@@ -66,6 +68,11 @@ namespace RongRanChamCham
         {
             characterController = GetComponent<CharacterController>();
             animator = GetComponent<Animator>();
+            if (animator != null && (animator.runtimeAnimatorController == null || !animator.isInitialized))
+            {
+                animator.enabled = false;
+                animator = null;
+            }
             EnsureSockets();
         }
 
@@ -94,7 +101,24 @@ namespace RongRanChamCham
             if (bodyVisual == null)
             {
                 var body = transform.Find("Model_Body");
-                if (body != null) bodyVisual = body;
+                if (body == null)
+                {
+                    var rend = GetComponentInChildren<Renderer>();
+                    if (rend != null && rend.transform != transform) body = rend.transform;
+                }
+                if (body == null)
+                {
+                    for (int i = 0; i < transform.childCount; i++)
+                    {
+                        var child = transform.GetChild(i);
+                        if (!child.name.StartsWith("Socket_") && !child.name.Contains("VFX") && !child.name.Contains("Aura"))
+                        {
+                            body = child;
+                            break;
+                        }
+                    }
+                }
+                bodyVisual = body;
             }
         }
 

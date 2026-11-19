@@ -54,7 +54,7 @@ namespace RongRanChamCham
         private float GrabRange => balanceConfig != null ? balanceConfig.hunterGrabRange : GameConstants.HunterGrabRange;
         private float GrabWindup => balanceConfig != null ? balanceConfig.hunterGrabWindup : GameConstants.HunterGrabWindup;
         private float GrabCooldown => balanceConfig != null ? balanceConfig.hunterGrabCooldown : GameConstants.HunterGrabCooldown;
-        private bool HasAnimator => animator != null && animator.runtimeAnimatorController != null;
+        private bool HasAnimator => animator != null && animator.isActiveAndEnabled && animator.runtimeAnimatorController != null && animator.isInitialized;
 
         private void Awake()
         {
@@ -68,12 +68,14 @@ namespace RongRanChamCham
             }
             navMeshAgent = GetComponent<NavMeshAgent>();
             animator = GetComponent<Animator>();
-            if (animator != null && animator.runtimeAnimatorController == null)
+            if (animator != null)
             {
                 animator.enabled = false;
+                animator = null;
             }
             proceduralAnim = GetComponent<ChibiProceduralAnimator>();
             EnsureSockets();
+            EnsureDuelTransforms();
         }
 
         private void EnsureSockets()
@@ -142,7 +144,30 @@ namespace RongRanChamCham
 
         private void EnsureDuelTransforms()
         {
-            if (hunterBodyTransform == null) hunterBodyTransform = transform.Find("Model_Body");
+            if (hunterBodyTransform == null)
+            {
+                if (proceduralAnim != null && proceduralAnim.BodyVisual != null)
+                {
+                    hunterBodyTransform = proceduralAnim.BodyVisual;
+                }
+                else
+                {
+                    var rend = GetComponentInChildren<Renderer>();
+                    if (rend != null && rend.transform != transform) hunterBodyTransform = rend.transform;
+                }
+                if (hunterBodyTransform == null)
+                {
+                    for (int i = 0; i < transform.childCount; i++)
+                    {
+                        var child = transform.GetChild(i);
+                        if (!child.name.StartsWith("Socket_") && !child.name.Contains("Swipe") && !child.name.Contains("VFX"))
+                        {
+                            hunterBodyTransform = child;
+                            break;
+                        }
+                    }
+                }
+            }
             if (socketGrabHand == null) socketGrabHand = transform.Find("Socket_Hand_R");
             if (wandTransform == null)
             {
@@ -215,39 +240,39 @@ namespace RongRanChamCham
             switch (dir)
             {
                 case DuelDirection.Left:
-                    targetHunterBodyPos = defaultBodyPos + new Vector3(-0.15f, 0f, 0.15f);
-                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(0f, -42f, 5f);
+                    targetHunterBodyPos = defaultBodyPos + new Vector3(-0.75f, 0.15f, 0.35f);
+                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(0f, -55f, 15f);
                     if (socketGrabHand != null)
                     {
-                        targetHandPos = defaultHandPos + new Vector3(-0.45f, 0.20f, 0.40f);
-                        targetHandRot = defaultHandRot * Quaternion.Euler(25f, -80f, 35f);
+                        targetHandPos = defaultHandPos + new Vector3(-0.85f, 0.30f, 0.65f);
+                        targetHandRot = defaultHandRot * Quaternion.Euler(20f, -90f, 40f);
                     }
                     break;
                 case DuelDirection.Right:
-                    targetHunterBodyPos = defaultBodyPos + new Vector3(0.15f, 0f, 0.15f);
-                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(0f, 42f, -5f);
+                    targetHunterBodyPos = defaultBodyPos + new Vector3(0.75f, 0.15f, 0.35f);
+                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(0f, 55f, -15f);
                     if (socketGrabHand != null)
                     {
-                        targetHandPos = defaultHandPos + new Vector3(0.45f, 0.20f, 0.30f);
-                        targetHandRot = defaultHandRot * Quaternion.Euler(25f, 80f, -35f);
+                        targetHandPos = defaultHandPos + new Vector3(0.85f, 0.30f, 0.65f);
+                        targetHandRot = defaultHandRot * Quaternion.Euler(20f, 90f, -40f);
                     }
                     break;
                 case DuelDirection.Straight: // Chỉ Lên trời
-                    targetHunterBodyPos = defaultBodyPos + new Vector3(0f, 0.08f, -0.08f);
-                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(-25f, 0f, 0f);
+                    targetHunterBodyPos = defaultBodyPos + new Vector3(0f, 0.55f, -0.15f);
+                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(-35f, 0f, 0f);
                     if (socketGrabHand != null)
                     {
-                        targetHandPos = defaultHandPos + new Vector3(0f, 0.60f, 0.20f);
-                        targetHandRot = defaultHandRot * Quaternion.Euler(-75f, 0f, 0f);
+                        targetHandPos = defaultHandPos + new Vector3(0f, 1.15f, 0.35f);
+                        targetHandRot = defaultHandRot * Quaternion.Euler(-85f, 0f, 0f);
                     }
                     break;
                 case DuelDirection.Down: // Chỉ Xuống đất
-                    targetHunterBodyPos = defaultBodyPos + new Vector3(0f, -0.15f, 0.25f);
-                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(38f, 0f, 0f);
+                    targetHunterBodyPos = defaultBodyPos + new Vector3(0f, -0.45f, 0.45f);
+                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(45f, 0f, 0f);
                     if (socketGrabHand != null)
                     {
-                        targetHandPos = defaultHandPos + new Vector3(0f, -0.22f, 0.50f);
-                        targetHandRot = defaultHandRot * Quaternion.Euler(70f, 0f, 0f);
+                        targetHandPos = defaultHandPos + new Vector3(0f, -0.45f, 0.85f);
+                        targetHandRot = defaultHandRot * Quaternion.Euler(80f, 0f, 0f);
                     }
                     break;
             }
@@ -393,7 +418,7 @@ namespace RongRanChamCham
             if (DecoyCloneActor.ActiveClone != null && DecoyCloneActor.ActiveClone.IsActive)
             {
                 targetPos = DecoyCloneActor.ActiveClone.TailPosition;
-                if (Vector3.Distance(transform.position, targetPos) < 1.35f)
+                if (DecoyCloneActor.ActiveClone.CanBeCaught && Vector3.Distance(transform.position, targetPos) < 1.35f)
                 {
                     DecoyCloneActor.ActiveClone.Vanish(true);
                     return;
@@ -686,17 +711,15 @@ namespace RongRanChamCham
                 toUt.y = 0f;
                 float grabFacingDot = toUt.sqrMagnitude > 0.01f ? Vector3.Dot(transform.forward, toUt.normalized) : 0f;
 
-                bool isBlocked = IsMotherBlockingLineOfSight();
-                if (!isBlocked && motherTransform != null)
+                bool isBlocked = false;
+                // Mẹ chỉ cản phá thành công nếu Mẹ đang chủ động Dang Tay Cản (IsFacingLocked) VÀ đứng chắn giữa Thầy và Bé Út
+                if (cachedMotherCtrl != null && cachedMotherCtrl.IsFacingLocked)
                 {
-                    Vector3 toH = transform.position - motherTransform.position;
-                    toH.y = 0f;
-                    if (toH.magnitude < 2.2f && Vector3.Dot(motherTransform.forward, toH.normalized) > -0.1f)
-                    {
-                        isBlocked = true;
-                    }
+                    isBlocked = IsMotherBlockingLineOfSight();
                 }
-                bool hasDirectContact = (handDistToBody <= currentGrabRange) && grabFacingDot >= 0.35f;
+
+                // Nhận diện va chạm vật lý chân thực: Chạm tay (<= 1.05m) HOẶC thân Thầy chạm sát Bé Út (<= 1.45m)
+                bool hasDirectContact = (handDistToBody <= currentGrabRange || distToTarget <= 1.45f) && grabFacingDot >= 0.25f;
 
                 if (isBlocked)
                 {

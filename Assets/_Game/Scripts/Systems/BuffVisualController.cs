@@ -10,7 +10,7 @@ namespace RongRanChamCham
 
         [Header("Visual Effects")]
         private GameObject shieldSphereObj;
-        private GameObject speedAuraObj;
+        private TrailRenderer speedTrail;
         private Material shieldMat;
         private Material speedMat;
 
@@ -49,43 +49,38 @@ namespace RongRanChamCham
             shieldSphereObj.GetComponent<Renderer>().sharedMaterial = shieldMat;
             shieldSphereObj.SetActive(false);
 
-            // 2. SPEED AURA RING (Vòng hào quang lướt gió tăng tốc)
-            speedAuraObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            speedAuraObj.name = "FX_Speed_Aura";
-            speedAuraObj.transform.SetParent(transform, false);
-            speedAuraObj.transform.localPosition = new Vector3(0f, 0.04f, 0f);
-            speedAuraObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            float speedScale = isMother ? 1.8f : 1.2f;
-            speedAuraObj.transform.localScale = Vector3.one * speedScale;
-            Destroy(speedAuraObj.GetComponent<Collider>());
+            // 2. SPEED DASH WIND TRAILS (Vệt lướt gió khí động học cuốn phía sau khi tăng tốc)
+            GameObject trailObj = new GameObject("FX_Speed_Dash_Trail");
+            trailObj.transform.SetParent(transform, false);
+            trailObj.transform.localPosition = new Vector3(0f, isMother ? 0.55f : 0.35f, 0f);
+
+            speedTrail = trailObj.AddComponent<TrailRenderer>();
+            speedTrail.time = 0.38f;
+            speedTrail.minVertexDistance = 0.08f;
+            speedTrail.startWidth = isMother ? 0.85f : 0.50f;
+            speedTrail.endWidth = 0.02f;
+            speedTrail.autodestruct = false;
+            speedTrail.emitting = false;
 
             speedMat = new Material(unlitShader);
             speedMat.SetFloat("_Surface", 1.0f);
             speedMat.SetFloat("_Blend", 0.0f);
             speedMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            speedMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            speedMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
             speedMat.SetInt("_ZWrite", 0);
             speedMat.SetInt("_Cull", 0);
             speedMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            speedMat.SetOverrideTag("RenderType", "Transparent");
             speedMat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-            Color speedCol = new Color(0.2f, 0.95f, 0.85f, 0.85f);
+            Color speedCol = new Color(0.35f, 0.95f, 1.0f, 0.85f);
             speedMat.SetColor("_BaseColor", speedCol);
-            speedMat.SetColor("_Color", speedCol);
-            speedMat.color = speedCol;
+            speedTrail.material = speedMat;
 
-            Texture2D ringTex = null;
-#if UNITY_EDITOR
-            ringTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/_Game/Textures/Items/tex_item_border_ring.png");
-#endif
-            if (ringTex != null)
-            {
-                speedMat.SetTexture("_BaseMap", ringTex);
-                speedMat.SetTexture("_MainTex", ringTex);
-                speedMat.mainTexture = ringTex;
-            }
-            speedAuraObj.GetComponent<Renderer>().sharedMaterial = speedMat;
-            speedAuraObj.SetActive(false);
+            var gradient = new Gradient();
+            gradient.SetKeys(
+                new GradientColorKey[] { new GradientColorKey(new Color(0.85f, 1f, 1f), 0.0f), new GradientColorKey(new Color(0.2f, 0.8f, 1f), 1.0f) },
+                new GradientAlphaKey[] { new GradientAlphaKey(0.85f, 0.0f), new GradientAlphaKey(0.0f, 1.0f) }
+            );
+            speedTrail.colorGradient = gradient;
         }
 
         private void Update()
@@ -109,15 +104,13 @@ namespace RongRanChamCham
                 }
             }
 
-            // Speed status
-            bool hasSpeed = BuffSystem.Instance.IsSnakeSpeedActive && isMother;
-            if (speedAuraObj != null)
+            // Speed status: emit wind dash trails behind character
+            bool hasSpeed = BuffSystem.Instance.IsSnakeSpeedActive;
+            if (speedTrail != null)
             {
-                if (speedAuraObj.activeSelf != hasSpeed) speedAuraObj.SetActive(hasSpeed);
-                if (hasSpeed)
+                if (speedTrail.emitting != hasSpeed)
                 {
-                    // Fast energetic spin
-                    speedAuraObj.transform.Rotate(0f, 0f, 280f * Time.deltaTime, Space.Self);
+                    speedTrail.emitting = hasSpeed;
                 }
             }
         }

@@ -29,6 +29,7 @@ namespace RongRanChamCham
         private readonly List<Vector3> chainHistory = new List<Vector3>();
 
         public bool IsActive => !isVanishing && lifeTimer < lifetime;
+        public bool CanBeCaught => lifeTimer >= 1.2f;
 
         public Transform TailTransform
         {
@@ -142,8 +143,18 @@ namespace RongRanChamCham
         private GameObject CloneVisual(GameObject source, Transform parent)
         {
             GameObject clone = Instantiate(source, parent);
-            clone.transform.localPosition = Vector3.zero;
-            clone.transform.localRotation = Quaternion.identity;
+            if (parent != null)
+            {
+                clone.transform.localPosition = Vector3.zero;
+                clone.transform.localRotation = Quaternion.identity;
+            }
+
+            // Xóa ngay lập tức BuffVisualController để không bao giờ sinh ra vệt tím/vòng sáng lỗi
+            var buffVisuals = clone.GetComponentsInChildren<BuffVisualController>(true);
+            foreach (var bv in buffVisuals)
+            {
+                if (bv != null) DestroyImmediate(bv);
+            }
 
             // Xóa bỏ các Script điều khiển thật và Collider để tránh xung đột vật lý
             var monos = clone.GetComponentsInChildren<MonoBehaviour>(true);
@@ -151,14 +162,14 @@ namespace RongRanChamCham
             {
                 if (m != null && !(m is ChibiProceduralAnimator))
                 {
-                    Destroy(m);
+                    DestroyImmediate(m);
                 }
             }
 
             var colliders = clone.GetComponentsInChildren<Collider>(true);
             foreach (var c in colliders)
             {
-                Destroy(c);
+                DestroyImmediate(c);
             }
 
             return clone;
@@ -237,9 +248,9 @@ namespace RongRanChamCham
                 toTarget.y = 0f;
 
                 float dist = toTarget.magnitude;
-                if (dist > linkSpacing)
+                if (dist > 0.05f)
                 {
-                    childPos = Vector3.MoveTowards(childPos, targetNode, runSpeed * dt * 1.15f);
+                    childPos = Vector3.MoveTowards(childPos, targetNode, runSpeed * dt * 1.25f);
                 }
                 childPos = ArenaBoundary.ClampToArena(childPos, 0.45f);
                 child.transform.position = childPos;
@@ -262,15 +273,8 @@ namespace RongRanChamCham
             if (isVanishing) return;
             isVanishing = true;
 
-            // Nổ tung khói ma thuật trên toàn bộ đàn rắn ảo
-            CreatePoofFX(transform.position, Color.yellow);
-            if (phantomChildren != null)
-            {
-                foreach (var c in phantomChildren)
-                {
-                    if (c != null) CreatePoofFX(c.transform.position, Color.magenta);
-                }
-            }
+            // Hiệu ứng khói vàng tan biến nhẹ nhàng (không dùng khối cầu tím)
+            CreatePoofFX(transform.position, new Color(1f, 0.9f, 0.4f, 0.6f));
 
             AudioManager.Instance?.PlaySFX(SoundType.ShieldBlock);
 
@@ -297,23 +301,23 @@ namespace RongRanChamCham
                 phantomChildren.Clear();
             }
 
-            Destroy(gameObject, 0.1f);
+            Destroy(gameObject, 0.05f);
         }
 
         private void CreatePoofFX(Vector3 pos, Color color)
         {
             var poof = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             poof.name = "Poof_FX";
-            poof.transform.position = pos + Vector3.up * 0.7f;
-            poof.transform.localScale = Vector3.one * 1.5f;
+            poof.transform.position = pos + Vector3.up * 0.4f;
+            poof.transform.localScale = Vector3.one * 0.45f;
             Destroy(poof.GetComponent<Collider>());
 
             var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Transparent");
             var mat = new Material(shader);
-            mat.SetColor("_BaseColor", new Color(color.r, color.g, color.b, 0.75f));
+            mat.SetColor("_BaseColor", new Color(color.r, color.g, color.b, 0.45f));
             poof.GetComponent<Renderer>().sharedMaterial = mat;
 
-            Destroy(poof, 0.45f);
+            Destroy(poof, 0.25f);
         }
 
         private void OnDestroy()

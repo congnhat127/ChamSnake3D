@@ -39,15 +39,16 @@ namespace RongRanChamCham
         public bool IsConUt => isConUt;
         public int Index => indexInChain;
         public float BodyRadius => characterController != null ? characterController.radius : 0.35f;
-        private bool HasAnimator => animator != null && animator.runtimeAnimatorController != null;
+        private bool HasAnimator => animator != null && animator.isActiveAndEnabled && animator.runtimeAnimatorController != null && animator.isInitialized;
 
         private void Awake()
         {
             characterController = GetComponent<CharacterController>();
             animator = GetComponent<Animator>();
-            if (animator != null && animator.runtimeAnimatorController == null)
+            if (animator != null)
             {
                 animator.enabled = false;
+                animator = null;
             }
             proceduralAnimator = GetComponent<ChibiProceduralAnimator>();
             EnsureSockets();
@@ -76,7 +77,30 @@ namespace RongRanChamCham
         {
             if (socketHead == null) socketHead = transform.Find("Socket_Head");
             if (socketCrown == null) socketCrown = transform.Find("Socket_Crown");
-            if (modelBodyTransform == null) modelBodyTransform = transform.Find("Model_Body");
+            if (modelBodyTransform == null)
+            {
+                if (proceduralAnimator != null && proceduralAnimator.BodyVisual != null)
+                {
+                    modelBodyTransform = proceduralAnimator.BodyVisual;
+                }
+                else
+                {
+                    var rend = GetComponentInChildren<Renderer>();
+                    if (rend != null && rend.transform != transform) modelBodyTransform = rend.transform;
+                }
+                if (modelBodyTransform == null)
+                {
+                    for (int i = 0; i < transform.childCount; i++)
+                    {
+                        var child = transform.GetChild(i);
+                        if (!child.name.StartsWith("Socket_") && !child.name.Contains("Crown") && !child.name.Contains("VFX"))
+                        {
+                            modelBodyTransform = child;
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         public void Initialize(int index, bool isTail, Transform leader)
@@ -191,34 +215,35 @@ namespace RongRanChamCham
 
         public void SetDuelDodge(DuelDirection dir)
         {
+            EnsureSockets();
             TriggerDodge(dir);
             switch (dir)
             {
                 case DuelDirection.Left:
-                    // Nhảy vọt sang Trái 0.65m, nghiêng người 28°
-                    targetBodyPos = defaultBodyPos + new Vector3(-0.65f, 0.22f, 0f);
-                    targetBodyRot = defaultBodyRot * Quaternion.Euler(0f, -15f, 28f);
-                    targetHeadRot = defaultHeadRot * Quaternion.Euler(0f, -30f, 15f);
+                    // Nhảy vọt dứt khoát sang Trái 1.15m, nghiêng người 38°
+                    targetBodyPos = defaultBodyPos + new Vector3(-1.15f, 0.45f, 0f);
+                    targetBodyRot = defaultBodyRot * Quaternion.Euler(0f, -25f, 38f);
+                    targetHeadRot = defaultHeadRot * Quaternion.Euler(0f, -35f, 25f);
                     targetBodyScale = defaultBodyScale;
                     break;
                 case DuelDirection.Right:
-                    // Nhảy vọt sang Phải 0.65m, nghiêng người -28°
-                    targetBodyPos = defaultBodyPos + new Vector3(0.65f, 0.22f, 0f);
-                    targetBodyRot = defaultBodyRot * Quaternion.Euler(0f, 15f, -28f);
-                    targetHeadRot = defaultHeadRot * Quaternion.Euler(0f, 30f, -15f);
+                    // Nhảy vọt dứt khoát sang Phải 1.15m, nghiêng người -38°
+                    targetBodyPos = defaultBodyPos + new Vector3(1.15f, 0.45f, 0f);
+                    targetBodyRot = defaultBodyRot * Quaternion.Euler(0f, 25f, -38f);
+                    targetHeadRot = defaultHeadRot * Quaternion.Euler(0f, 35f, -25f);
                     targetBodyScale = defaultBodyScale;
                     break;
-                case DuelDirection.Straight: // Nhảy vổng lên cao
-                    targetBodyPos = defaultBodyPos + new Vector3(0f, 0.88f, -0.10f);
-                    targetBodyRot = defaultBodyRot * Quaternion.Euler(-25f, 0f, 0f);
-                    targetHeadRot = defaultHeadRot * Quaternion.Euler(-35f, 0f, 0f);
-                    targetBodyScale = new Vector3(defaultBodyScale.x * 0.85f, defaultBodyScale.y * 1.25f, defaultBodyScale.z * 0.85f);
+                case DuelDirection.Straight: // Nhảy vổng vút lên không trung 1.35m
+                    targetBodyPos = defaultBodyPos + new Vector3(0f, 1.35f, -0.20f);
+                    targetBodyRot = defaultBodyRot * Quaternion.Euler(-30f, 0f, 0f);
+                    targetHeadRot = defaultHeadRot * Quaternion.Euler(-45f, 0f, 0f);
+                    targetBodyScale = new Vector3(defaultBodyScale.x * 0.80f, defaultBodyScale.y * 1.35f, defaultBodyScale.z * 0.80f);
                     break;
-                case DuelDirection.Down: // Cúi sát mặt sàn, dẹp người
-                    targetBodyPos = defaultBodyPos + new Vector3(0f, -0.32f, 0.12f);
-                    targetBodyRot = defaultBodyRot * Quaternion.Euler(35f, 0f, 0f);
-                    targetHeadRot = defaultHeadRot * Quaternion.Euler(45f, 0f, 0f);
-                    targetBodyScale = new Vector3(defaultBodyScale.x * 1.40f, defaultBodyScale.y * 0.52f, defaultBodyScale.z * 1.40f);
+                case DuelDirection.Down: // Thu mình bẹp dí sát đất (Pancake Squash)
+                    targetBodyPos = defaultBodyPos + new Vector3(0f, -0.42f, 0.15f);
+                    targetBodyRot = defaultBodyRot * Quaternion.Euler(45f, 0f, 0f);
+                    targetHeadRot = defaultHeadRot * Quaternion.Euler(55f, 0f, 0f);
+                    targetBodyScale = new Vector3(defaultBodyScale.x * 1.55f, defaultBodyScale.y * 0.38f, defaultBodyScale.z * 1.55f);
                     break;
             }
         }

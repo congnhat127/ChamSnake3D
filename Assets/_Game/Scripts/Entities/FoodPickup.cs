@@ -14,6 +14,7 @@ namespace RongRanChamCham
 
         private Transform visualContainer;
         private Transform groundAura;
+        private GameObject billboardBadge;
         private Vector3 startContainerPos;
         private Vector3 startAuraScale;
 
@@ -32,7 +33,6 @@ namespace RongRanChamCham
             if (visualContainer != null)
             {
                 startContainerPos = visualContainer.localPosition;
-                // Giữ cố định góc nghiêng -34 độ ngửa mặt thẳng vào camera, xuôi chiều từ trên xuống
                 visualContainer.localRotation = Quaternion.Euler(-34f, 0f, 0f);
             }
             else
@@ -44,29 +44,81 @@ namespace RongRanChamCham
             {
                 startAuraScale = groundAura.localScale;
             }
+
+            CreateFloatingBillboardBadge();
+        }
+
+        private void CreateFloatingBillboardBadge()
+        {
+            billboardBadge = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            billboardBadge.name = "Floating_Dish_Badge";
+            billboardBadge.transform.SetParent(transform, false);
+            billboardBadge.transform.localPosition = new Vector3(0f, 0.95f, 0f);
+            billboardBadge.transform.localScale = Vector3.one * 0.85f;
+            Destroy(billboardBadge.GetComponent<Collider>());
+
+            string texName = foodType switch
+            {
+                FoodType.Pho => "item_pho",
+                FoodType.BanhMi => "item_banh_mi",
+                FoodType.Kimbap => "item_kimbap",
+                FoodType.Tteokbokki => "item_tteokbokki",
+                _ => "item_pho"
+            };
+
+            Texture2D tex = Resources.Load<Texture2D>($"Items/{texName}");
+#if UNITY_EDITOR
+            if (tex == null)
+            {
+                tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/_Game/Textures/Items/{texName}.png");
+            }
+#endif
+            var unlitShader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Transparent");
+            var mat = new Material(unlitShader);
+            mat.SetFloat("_Surface", 1.0f);
+            mat.SetFloat("_Blend", 0.0f);
+            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetInt("_ZWrite", 0);
+            mat.SetInt("_Cull", 0);
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+            if (tex != null)
+            {
+                mat.SetTexture("_BaseMap", tex);
+                mat.SetTexture("_MainTex", tex);
+                mat.mainTexture = tex;
+            }
+            mat.SetColor("_BaseColor", Color.white);
+            billboardBadge.GetComponent<Renderer>().sharedMaterial = mat;
         }
 
         private void Update()
         {
             float time = Time.time;
 
-            // 1. Nhấp nhô nhẹ nhàng (Floating bob), KHÔNG xoay tròn để hình món ăn luôn ngửa về phía người chơi
+            // 1. Nhấp nhô đĩa thức ăn
             if (visualContainer != null)
             {
                 float bobY = startContainerPos.y + Mathf.Sin(time * bobFrequency) * bobAmplitude;
                 visualContainer.localPosition = new Vector3(startContainerPos.x, bobY, startContainerPos.z);
-
-                // Độ phập phồng nhẹ tạo cảm giác hấp dẫn
                 float pulse = 1.0f + 0.04f * Mathf.Sin(time * 3.0f);
                 visualContainer.localScale = new Vector3(pulse, pulse, pulse);
             }
-            else
+
+            // 2. Icon 2.5D bay bổng và luôn xoay mặt về phía Camera
+            if (billboardBadge != null)
             {
-                float newY = startContainerPos.y + Mathf.Sin(time * bobFrequency) * bobAmplitude;
-                transform.position = new Vector3(transform.position.x, newY, transform.position.z);
+                float badgeY = 0.95f + Mathf.Sin(time * bobFrequency) * 0.10f;
+                billboardBadge.transform.localPosition = new Vector3(0f, badgeY, 0f);
+                if (Camera.main != null)
+                {
+                    billboardBadge.transform.rotation = Camera.main.transform.rotation;
+                }
             }
 
-            // 2. Vòng dạ quang sàn phập phồng nhẹ
+            // 3. Vòng dạ quang sàn phập phồng nhẹ
             if (groundAura != null)
             {
                 float auraPulse = 1.0f + 0.10f * Mathf.Sin(time * 4.0f);
