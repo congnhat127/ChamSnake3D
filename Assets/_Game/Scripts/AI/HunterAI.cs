@@ -35,8 +35,15 @@ namespace RongRanChamCham
 
         private Transform hunterBodyTransform;
         private Transform wandTransform;
+        private Vector3 defaultBodyPos;
+        private Quaternion defaultBodyRot = Quaternion.identity;
+        private Vector3 defaultHandPos;
+        private Quaternion defaultHandRot = Quaternion.identity;
+        private Vector3 targetHunterBodyPos;
         private Quaternion targetHunterBodyRot = Quaternion.identity;
-        private Quaternion targetWandRot = Quaternion.identity;
+        private Vector3 targetHandPos;
+        private Quaternion targetHandRot = Quaternion.identity;
+        private GameObject dizzyStarsRoot;
 
         public event Action OnCaughtConUt;
         public bool IsGrabbing => isPerformingGrab;
@@ -47,6 +54,7 @@ namespace RongRanChamCham
         private float GrabRange => balanceConfig != null ? balanceConfig.hunterGrabRange : GameConstants.HunterGrabRange;
         private float GrabWindup => balanceConfig != null ? balanceConfig.hunterGrabWindup : GameConstants.HunterGrabWindup;
         private float GrabCooldown => balanceConfig != null ? balanceConfig.hunterGrabCooldown : GameConstants.HunterGrabCooldown;
+        private bool HasAnimator => animator != null && animator.runtimeAnimatorController != null;
 
         private void Awake()
         {
@@ -60,6 +68,10 @@ namespace RongRanChamCham
             }
             navMeshAgent = GetComponent<NavMeshAgent>();
             animator = GetComponent<Animator>();
+            if (animator != null && animator.runtimeAnimatorController == null)
+            {
+                animator.enabled = false;
+            }
             proceduralAnim = GetComponent<ChibiProceduralAnimator>();
             EnsureSockets();
         }
@@ -73,6 +85,22 @@ namespace RongRanChamCham
         private void Start()
         {
             EnsureTargets();
+            EnsureDuelTransforms();
+            if (hunterBodyTransform != null)
+            {
+                defaultBodyPos = hunterBodyTransform.localPosition;
+                defaultBodyRot = hunterBodyTransform.localRotation;
+                targetHunterBodyPos = defaultBodyPos;
+                targetHunterBodyRot = defaultBodyRot;
+            }
+            if (socketGrabHand != null)
+            {
+                defaultHandPos = socketGrabHand.localPosition;
+                defaultHandRot = socketGrabHand.localRotation;
+                targetHandPos = defaultHandPos;
+                targetHandRot = defaultHandRot;
+            }
+
             if (navMeshAgent != null)
             {
                 navMeshAgent.speed = MoveSpeed;
@@ -115,17 +143,56 @@ namespace RongRanChamCham
         private void EnsureDuelTransforms()
         {
             if (hunterBodyTransform == null) hunterBodyTransform = transform.Find("Model_Body");
+            if (socketGrabHand == null) socketGrabHand = transform.Find("Socket_Hand_R");
             if (wandTransform == null)
             {
-                wandTransform = transform.Find("Pointer_Wand");
-                if (wandTransform == null && socketGrabHand != null) wandTransform = socketGrabHand.Find("Pointer_Wand");
+                if (socketGrabHand != null) wandTransform = socketGrabHand.Find("Pointer_Wand");
+                if (wandTransform == null) wandTransform = transform.Find("Pointer_Wand");
+                if (wandTransform == null && socketGrabHand != null) wandTransform = socketGrabHand;
+            }
+        }
+
+        public void PlayDuelChantStomp(int countdownStep)
+        {
+            EnsureDuelTransforms();
+            // Thầy Thuốc giậm chân nhún nhảy và vung gậy theo nhịp hô "CHĂM!"
+            targetHunterBodyPos = defaultBodyPos + new Vector3(0f, 0.12f, 0.10f);
+            targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(14f, countdownStep % 2 == 0 ? -10f : 10f, 0f);
+            if (socketGrabHand != null)
+            {
+                targetHandPos = defaultHandPos + new Vector3(0f, 0.35f, 0.15f);
+                targetHandRot = defaultHandRot * Quaternion.Euler(-50f, 0f, 30f);
+            }
+        }
+
+        public void PlayDuelTriumphSwipe()
+        {
+            EnsureDuelTransforms();
+            targetHunterBodyPos = defaultBodyPos + new Vector3(0f, 0.15f, 0.05f);
+            targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(-18f, 25f, 0f);
+            if (socketGrabHand != null)
+            {
+                targetHandPos = defaultHandPos + new Vector3(0.2f, 0.45f, 0.35f);
+                targetHandRot = defaultHandRot * Quaternion.Euler(-65f, 35f, 0f);
+            }
+        }
+
+        public void PlayDuelFrustration()
+        {
+            EnsureDuelTransforms();
+            targetHunterBodyPos = defaultBodyPos + new Vector3(0f, -0.1f, 0f);
+            targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(22f, -15f, 0f);
+            if (socketGrabHand != null)
+            {
+                targetHandPos = defaultHandPos + new Vector3(0f, -0.1f, 0.1f);
+                targetHandRot = defaultHandRot * Quaternion.Euler(45f, 0f, 0f);
             }
         }
 
         public void TriggerDuelPoint(DuelDirection dir)
         {
             EnsureDuelTransforms();
-            if (animator != null)
+            if (HasAnimator)
             {
                 switch (dir)
                 {
@@ -144,24 +211,44 @@ namespace RongRanChamCham
                 }
             }
 
-            // Direct expressive pointing stance & wand angle
+            // Động tác chỉ hướng cực kỳ dứt khoát, uy lực và rõ nét trong không gian 3D
             switch (dir)
             {
                 case DuelDirection.Left:
-                    targetHunterBodyRot = Quaternion.Euler(0f, -48f, -14f);
-                    targetWandRot = Quaternion.Euler(0f, -70f, 0f);
+                    targetHunterBodyPos = defaultBodyPos + new Vector3(-0.15f, 0f, 0.15f);
+                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(0f, -42f, 5f);
+                    if (socketGrabHand != null)
+                    {
+                        targetHandPos = defaultHandPos + new Vector3(-0.45f, 0.20f, 0.40f);
+                        targetHandRot = defaultHandRot * Quaternion.Euler(25f, -80f, 35f);
+                    }
                     break;
                 case DuelDirection.Right:
-                    targetHunterBodyRot = Quaternion.Euler(0f, 48f, 14f);
-                    targetWandRot = Quaternion.Euler(0f, 70f, 0f);
+                    targetHunterBodyPos = defaultBodyPos + new Vector3(0.15f, 0f, 0.15f);
+                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(0f, 42f, -5f);
+                    if (socketGrabHand != null)
+                    {
+                        targetHandPos = defaultHandPos + new Vector3(0.45f, 0.20f, 0.30f);
+                        targetHandRot = defaultHandRot * Quaternion.Euler(25f, 80f, -35f);
+                    }
                     break;
-                case DuelDirection.Straight: // Up
-                    targetHunterBodyRot = Quaternion.Euler(-26f, 0f, 0f);
-                    targetWandRot = Quaternion.Euler(-55f, 0f, 0f);
+                case DuelDirection.Straight: // Chỉ Lên trời
+                    targetHunterBodyPos = defaultBodyPos + new Vector3(0f, 0.08f, -0.08f);
+                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(-25f, 0f, 0f);
+                    if (socketGrabHand != null)
+                    {
+                        targetHandPos = defaultHandPos + new Vector3(0f, 0.60f, 0.20f);
+                        targetHandRot = defaultHandRot * Quaternion.Euler(-75f, 0f, 0f);
+                    }
                     break;
-                case DuelDirection.Down: // Down
-                    targetHunterBodyRot = Quaternion.Euler(28f, 0f, 0f);
-                    targetWandRot = Quaternion.Euler(55f, 0f, 0f);
+                case DuelDirection.Down: // Chỉ Xuống đất
+                    targetHunterBodyPos = defaultBodyPos + new Vector3(0f, -0.15f, 0.25f);
+                    targetHunterBodyRot = defaultBodyRot * Quaternion.Euler(38f, 0f, 0f);
+                    if (socketGrabHand != null)
+                    {
+                        targetHandPos = defaultHandPos + new Vector3(0f, -0.22f, 0.50f);
+                        targetHandRot = defaultHandRot * Quaternion.Euler(70f, 0f, 0f);
+                    }
                     break;
             }
         }
@@ -169,10 +256,20 @@ namespace RongRanChamCham
         public void ResetDuelStance()
         {
             EnsureDuelTransforms();
-            targetHunterBodyRot = Quaternion.identity;
-            targetWandRot = Quaternion.identity;
-            if (hunterBodyTransform != null) hunterBodyTransform.localRotation = Quaternion.identity;
-            if (wandTransform != null) wandTransform.localRotation = Quaternion.identity;
+            targetHunterBodyPos = defaultBodyPos;
+            targetHunterBodyRot = defaultBodyRot;
+            targetHandPos = defaultHandPos;
+            targetHandRot = defaultHandRot;
+            if (hunterBodyTransform != null)
+            {
+                hunterBodyTransform.localPosition = defaultBodyPos;
+                hunterBodyTransform.localRotation = defaultBodyRot;
+            }
+            if (socketGrabHand != null)
+            {
+                socketGrabHand.localPosition = defaultHandPos;
+                socketGrabHand.localRotation = defaultHandRot;
+            }
         }
 
         private void Update()
@@ -197,20 +294,22 @@ namespace RongRanChamCham
                         faceUt.y = 0f;
                         if (faceUt.sqrMagnitude > 0.01f)
                         {
-                            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(faceUt), Time.deltaTime * 12f);
+                            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(faceUt), Time.deltaTime * 14f);
                         }
                     }
 
                     if (hunterBodyTransform != null)
                     {
+                        hunterBodyTransform.localPosition = Vector3.Lerp(hunterBodyTransform.localPosition, targetHunterBodyPos, Time.deltaTime * 14f);
                         hunterBodyTransform.localRotation = Quaternion.Slerp(hunterBodyTransform.localRotation, targetHunterBodyRot, Time.deltaTime * 16f);
                     }
-                    if (wandTransform != null)
+                    if (socketGrabHand != null)
                     {
-                        wandTransform.localRotation = Quaternion.Slerp(wandTransform.localRotation, targetWandRot, Time.deltaTime * 18f);
+                        socketGrabHand.localPosition = Vector3.Lerp(socketGrabHand.localPosition, targetHandPos, Time.deltaTime * 18f);
+                        socketGrabHand.localRotation = Quaternion.Slerp(socketGrabHand.localRotation, targetHandRot, Time.deltaTime * 20f);
                     }
 
-                    if (animator != null)
+                    if (HasAnimator)
                     {
                         animator.SetFloat("Speed", 0f);
                         animator.SetBool("IsVictory", false);
@@ -250,7 +349,7 @@ namespace RongRanChamCham
                     transform.rotation = Quaternion.Slerp(transform.rotation, CameraFollow.FacingCamera(transform.position), Time.deltaTime * 6f);
                 }
 
-                if (animator != null)
+                if (HasAnimator)
                 {
                     bool hunterDefeated = GameManager.Instance.CurrentState == GameState.Victory;
                     bool hunterWon = GameManager.Instance.CurrentState == GameState.GameOver;
@@ -269,9 +368,14 @@ namespace RongRanChamCham
             if (stunTimer > 0f)
             {
                 stunTimer -= Time.deltaTime;
-                if (animator != null) animator.SetFloat("Speed", 0f);
+                if (HasAnimator) animator.SetFloat("Speed", 0f);
+                UpdateDizzyVisual(true);
                 ApplyExternalPush();
                 return;
+            }
+            else
+            {
+                UpdateDizzyVisual(false);
             }
 
             if (isPerformingGrab)
@@ -284,8 +388,20 @@ namespace RongRanChamCham
 
             // 2. Navigation & Steering
             Vector3 targetPos = conUtTarget.transform.position;
+
+            // Nếu có Phân Thân Ảo Ảnh đang hoạt động: Thầy Thuốc bị đánh lừa rượt đuổi khúc đuôi đàn rắn ảo!
+            if (DecoyCloneActor.ActiveClone != null && DecoyCloneActor.ActiveClone.IsActive)
+            {
+                targetPos = DecoyCloneActor.ActiveClone.TailPosition;
+                if (Vector3.Distance(transform.position, targetPos) < 1.35f)
+                {
+                    DecoyCloneActor.ActiveClone.Vanish(true);
+                    return;
+                }
+            }
+
             float distToConUt = Vector3.Distance(transform.position, targetPos);
-            bool isMotherBlocking = IsMotherBlockingLineOfSight();
+            bool isMotherBlocking = DecoyCloneActor.ActiveClone == null && IsMotherBlockingLineOfSight();
 
             // 3. Trigger Grab Action only if in Range, Facing target, NOT blocked by Mother, & Cooldown elapsed
             Vector3 toConUt = targetPos - transform.position;
@@ -310,7 +426,7 @@ namespace RongRanChamCham
 
             ApplyExternalPush();
 
-            if (animator != null)
+            if (HasAnimator)
             {
                 float currentSpeed = controller != null ? controller.velocity.magnitude : (navMeshAgent != null ? navMeshAgent.velocity.magnitude : 0f);
                 animator.SetFloat("Speed", currentSpeed);
@@ -470,6 +586,56 @@ namespace RongRanChamCham
             }
         }
 
+        private void UpdateDizzyVisual(bool active)
+        {
+            if (active)
+            {
+                if (dizzyStarsRoot == null)
+                {
+                    dizzyStarsRoot = new GameObject("Hunter_Dizzy_Stars");
+                    dizzyStarsRoot.transform.SetParent(socketHead != null ? socketHead : transform, false);
+                    dizzyStarsRoot.transform.localPosition = new Vector3(0f, 0.45f, 0f);
+
+                    var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color");
+                    var starMat = new Material(shader);
+                    starMat.SetColor("_BaseColor", new Color(1f, 0.9f, 0.1f));
+
+                    for (int i = 0; i < 3; i++)
+                    {
+                        float angle = i * 120f * Mathf.Deg2Rad;
+                        var star = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                        star.name = $"Star_{i}";
+                        star.transform.SetParent(dizzyStarsRoot.transform, false);
+                        star.transform.localPosition = new Vector3(Mathf.Cos(angle) * 0.35f, 0f, Mathf.Sin(angle) * 0.35f);
+                        star.transform.localScale = Vector3.one * 0.14f;
+                        Destroy(star.GetComponent<Collider>());
+                        star.GetComponent<Renderer>().sharedMaterial = starMat;
+                    }
+                }
+                dizzyStarsRoot.SetActive(true);
+                dizzyStarsRoot.transform.Rotate(0f, 280f * Time.deltaTime, 0f);
+            }
+            else if (dizzyStarsRoot != null && dizzyStarsRoot.activeSelf)
+            {
+                dizzyStarsRoot.SetActive(false);
+            }
+        }
+
+        public void ApplyExternalStun(float seconds)
+        {
+            stunTimer = Mathf.Max(stunTimer, seconds);
+            externalPushVelocity = Vector3.zero;
+            if (isPerformingGrab)
+            {
+                CancelGrab();
+            }
+            if (HasAnimator)
+            {
+                animator.SetFloat("Speed", 0f);
+                animator.SetBool("IsAngry", true);
+            }
+        }
+
         public void GetShovedByMother(Vector3 shoveDirection, float force)
         {
             externalPushVelocity = shoveDirection * force;
@@ -486,7 +652,7 @@ namespace RongRanChamCham
             grabWindupTimer = GrabWindup;
             if (navMeshAgent != null && navMeshAgent.isOnNavMesh) navMeshAgent.isStopped = true;
             if (swipeVfxVisual != null) swipeVfxVisual.SetActive(true);
-            if (animator != null) animator.SetTrigger("Lunge");
+            if (HasAnimator) animator.SetTrigger("Lunge");
             AudioManager.Instance?.PlaySFX(SoundType.Whoosh);
         }
 
@@ -585,7 +751,7 @@ namespace RongRanChamCham
             nextGrabAvailableTime = Time.time + Mathf.Max(grabCooldownSeconds, 5.0f);
             stunTimer = Mathf.Max(freezeSeconds, 2.0f);
             externalPushVelocity = Vector3.zero;
-            if (animator != null)
+            if (HasAnimator)
             {
                 animator.SetFloat("Speed", 0f);
             }

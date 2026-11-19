@@ -131,7 +131,8 @@ namespace RongRanChamCham
 
         public void ChooseDirection(DuelDirection dir)
         {
-            if (!isDuelActive || hasUserChosen) return;
+            // Chỉ chấp nhận bấm nút khi đang trong cửa sổ phản xạ (sau khi đếm 3-2-1 xong)
+            if (!isDuelActive || countdownNumber > 0 || reactionTimeRemaining <= 0f || hasUserChosen) return;
             userClickedChoice = dir;
             hasUserChosen = true;
 
@@ -158,21 +159,27 @@ namespace RongRanChamCham
                 if (snakeChain != null && snakeChain.ConUt != null) snakeChain.ConUt.ResetDuelStance();
                 if (hunter != null) hunter.ResetDuelStance();
 
-                // ĐẾM LÙI 3 - 2 - 1 ĐỀU ĐẶN Ở MỌI HIỆP ĐẤU
+                // ĐẾM LÙI 3 - 2 - 1 ĐỀU ĐẶN Ở MỌI HIỆP ĐẤU (Nhún nhảy & giậm chân theo nhịp Chăm)
                 countdownNumber = 3;
                 OnDuelChantStep?.Invoke("3");
                 AudioManager.Instance?.PlaySFX(SoundType.ChamBeat);
-                yield return new WaitForSeconds(0.65f);
+                if (hunter != null) hunter.PlayDuelChantStomp(3);
+                if (snakeChain != null && snakeChain.ConUt != null) snakeChain.ConUt.PlayDuelAnticipation(3);
+                yield return new WaitForSeconds(0.68f);
 
                 countdownNumber = 2;
                 OnDuelChantStep?.Invoke("2");
                 AudioManager.Instance?.PlaySFX(SoundType.ChamBeat);
-                yield return new WaitForSeconds(0.65f);
+                if (hunter != null) hunter.PlayDuelChantStomp(2);
+                if (snakeChain != null && snakeChain.ConUt != null) snakeChain.ConUt.PlayDuelAnticipation(2);
+                yield return new WaitForSeconds(0.68f);
 
                 countdownNumber = 1;
                 OnDuelChantStep?.Invoke("1");
                 AudioManager.Instance?.PlaySFX(SoundType.ChamBeat);
-                yield return new WaitForSeconds(0.65f);
+                if (hunter != null) hunter.PlayDuelChantStomp(1);
+                if (snakeChain != null && snakeChain.ConUt != null) snakeChain.ConUt.PlayDuelAnticipation(1);
+                yield return new WaitForSeconds(0.68f);
 
                 countdownNumber = 0;
                 OnDuelChantStep?.Invoke("CHĂM! NÉ MAU!");
@@ -184,7 +191,9 @@ namespace RongRanChamCham
                 if (hunter != null) hunter.TriggerDuelPoint(hunterChoice);
 
                 // Cửa sổ thời gian phản xạ né đòn (tối thiểu 1.35 giây)
-                DuelDirection playerChoice = DuelDirection.Straight;
+                hasUserChosen = false;
+                userClickedChoice = (DuelDirection)(-1);
+                DuelDirection playerChoice = (DuelDirection)(-1);
                 reactionTimeRemaining = LevelManager.Instance != null ? LevelManager.Instance.CurrentLevelData.qteReactionWindow : DefaultReactionWindow;
                 if (reactionTimeRemaining < 1.35f) reactionTimeRemaining = 1.35f;
 
@@ -287,21 +296,25 @@ namespace RongRanChamCham
                     yield return null;
                 }
 
-                // Kiểm tra kết quả hiệp
-                bool roundWon = (playerChoice != hunterChoice) && hasUserChosen;
+                // Kiểm tra kết quả hiệp: BẮT BUỘC người chơi phải chủ động bấm né và hướng né KHÁC hướng Thầy Thuốc
+                bool roundWon = hasUserChosen && (playerChoice != hunterChoice);
 
                 if (roundWon)
                 {
                     playerScore++;
                     AudioManager.Instance?.PlaySFX(SoundType.Pickup);
                     OnRoundResult?.Invoke(true, $"HIỆP {currentRound}: NÉ ĐƯỢC!  {playerScore} – {hunterScore}");
+                    if (snakeChain != null && snakeChain.ConUt != null) snakeChain.ConUt.PlayDuelVictoryHop();
+                    if (hunter != null) hunter.PlayDuelFrustration();
                 }
                 else
                 {
                     hunterScore++;
                     AudioManager.Instance?.PlaySFX(SoundType.Defeat);
-                    string failReason = hasUserChosen ? $"Trùng hướng {DirectionName(hunterChoice)}" : "Quá giờ né";
+                    string failReason = hasUserChosen ? $"Trùng hướng {DirectionName(hunterChoice)}" : "Chưa bấm né (Quá giờ)";
                     OnRoundResult?.Invoke(false, $"HIỆP {currentRound}: {failReason}!  {playerScore} – {hunterScore}");
+                    if (snakeChain != null && snakeChain.ConUt != null) snakeChain.ConUt.PlayDuelHurtStumble();
+                    if (hunter != null) hunter.PlayDuelTriumphSwipe();
                 }
 
                 yield return new WaitForSeconds(1.3f);

@@ -45,6 +45,7 @@ namespace RongRanChamCham
 
         private Camera cachedCamera;
         private Light sunLight;
+        private Light duelFillLight;
         private Transform measuredTarget;
         private float measuredHeight;
 
@@ -163,6 +164,35 @@ namespace RongRanChamCham
         public void SetDuelMode(bool enabled)
         {
             isDuelMode = enabled;
+            UpdateDuelLighting(enabled);
+        }
+
+        private void UpdateDuelLighting(bool active)
+        {
+            if (duelFillLight == null)
+            {
+                GameObject lightGo = new GameObject("Camera_Duel_FillLight");
+                lightGo.transform.SetParent(transform, false);
+                lightGo.transform.localPosition = Vector3.zero;
+                lightGo.transform.localRotation = Quaternion.identity;
+
+                duelFillLight = lightGo.AddComponent<Light>();
+                duelFillLight.type = LightType.Directional;
+                duelFillLight.color = new Color(1.0f, 0.96f, 0.90f);
+                duelFillLight.intensity = 1.35f;
+                duelFillLight.shadows = LightShadows.None;
+            }
+            duelFillLight.enabled = active;
+
+            // Nâng sáng môi trường để khuôn mặt và trang phục các nhân vật luôn rạng rỡ, sắc nét
+            if (active)
+            {
+                RenderSettings.ambientLight = new Color(0.68f, 0.68f, 0.72f);
+            }
+            else
+            {
+                RenderSettings.ambientLight = new Color(0.45f, 0.45f, 0.50f);
+            }
         }
 
         private void LateUpdate()
@@ -226,15 +256,16 @@ namespace RongRanChamCham
 
         private void UpdateDuel()
         {
-            // Đứng ngang hông cặp đấu để thấy cả Thầy Thuốc lẫn bé Út.
+            // Đứng từ phía mặt trước (z âm) để thấy trọn vẹn cả Thầy Thuốc lẫn bé Út đối kháng trực diện.
+            // Mẹ và các con đứng ở hậu trường phía sau (z dương), hoàn toàn không che khuất tầm nhìn.
             Vector3 hunterPos = hunterTransform.position;
             Vector3 tailPos = tailChildTransform.position;
             Vector3 mid = (hunterPos + tailPos) * 0.5f;
             Vector3 axis = Flat(tailPos - hunterPos);
 
-            Vector3 side = SideToward(mid, axis);
-            float dist = duelDistance + axis.magnitude * 0.5f;
-            MoveTo(mid + side * dist + Vector3.up * duelHeight, mid + Vector3.up * LookHeight, duelSmoothSpeed);
+            Vector3 side = new Vector3(0f, 0f, -1f);
+            float dist = Mathf.Max(2.8f, duelDistance + axis.magnitude * 0.45f);
+            MoveTo(mid + side * dist + Vector3.up * Mathf.Max(1.2f, duelHeight), mid + Vector3.up * LookHeight, duelSmoothSpeed);
         }
 
         private void UpdateVictory()

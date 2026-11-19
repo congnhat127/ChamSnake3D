@@ -143,7 +143,14 @@ namespace RongRanChamCham
                         break;
                     case FoodType.Tteokbokki:
                         SnakeCloneTimer = cloneDuration;
-                        Debug.Log($"[BuffSystem] Rồng Rắn ăn BÁNH GẠO CAY: Tạo PHÂN THÂN trong {cloneDuration}s!");
+                        // Sinh ra ĐOÀN RỒNG RẮN ẢO ẢNH toàn diện (Mẹ + Đàn Con Út đội vương miện) tách ra từ đàn rắn thật
+                        var snake = GameManager.Instance != null ? GameManager.Instance.SnakeChain : null;
+                        var mother = GameManager.Instance != null ? GameManager.Instance.Mother : null;
+                        if (mother != null)
+                        {
+                            DecoyCloneActor.Spawn(mother, snake);
+                        }
+                        Debug.Log($"<color=cyan>[BuffSystem]</color> Rồng Rắn ăn BÁNH GẠO CAY: Tạo NGUYÊN ĐOÀN RỒNG RẮN PHÂN THÂN trong {cloneDuration}s!");
                         break;
                 }
                 OnBuffApplied?.Invoke(type, true);

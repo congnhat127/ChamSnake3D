@@ -137,6 +137,19 @@ namespace RongRanChamCham
         }
 #endif
 
+        private Vector2 virtualJoystickInput = Vector2.zero;
+        private bool virtualShieldInput = false;
+
+        public void SetVirtualJoystick(Vector2 dir)
+        {
+            virtualJoystickInput = dir;
+        }
+
+        public void SetVirtualShield(bool active)
+        {
+            virtualShieldInput = active;
+        }
+
         private void UpdateInput()
         {
 #if UNITY_EDITOR
@@ -147,29 +160,24 @@ namespace RongRanChamCham
                 return;
             }
 #endif
-            float refScale = Screen.height / 1080f;
-            joystickRadius = Screen.height * 0.10f;
-
-            // Compute responsive button rect early for touches & OnGUI
-            float btnSize = Screen.height * 0.18f;
-            float margin = 35f * refScale;
-            float btnX = Screen.width - btnSize - margin;
-            float btnY = Screen.height - btnSize - margin;
-            lockButtonRect = new Rect(btnX, btnY, btnSize, btnSize);
-
-            // 1. Check Mobile Multi-touch
-            bool hasMobileTouch = ProcessTouches();
-
-            // 2. Mouse Drag Fallback (for Editor / PC testing of touch)
-            if (!hasMobileTouch)
+            // Nếu có input từ uGUI Canvas
+            if (virtualJoystickInput.sqrMagnitude > 0.001f)
             {
-                hasMobileTouch = ProcessMouseAsTouch();
+                moveDirection = virtualJoystickInput;
+            }
+            else
+            {
+                // Fallback bàn phím / chuột
+                ProcessKeyboardInput();
             }
 
-            // 3. PC Keyboard Fallback (if no mouse/touch drag)
-            if (!hasMobileTouch)
+            if (virtualShieldInput)
             {
-                ProcessKeyboardInput();
+                isFacingLocked = true;
+            }
+            else
+            {
+                isFacingLocked = Input.GetKey(KeyCode.Space) || Input.GetMouseButton(1);
             }
         }
 
@@ -404,66 +412,7 @@ namespace RongRanChamCham
 
         private void OnGUI()
         {
-            if (GameManager.Instance == null || GameManager.Instance.CurrentState != GameState.Chasing)
-            {
-                return;
-            }
-
-            // 1. Right Action Button (Clean 3D Circular Barrier Button, ZERO TEXT)
-            Texture2D actionTex = isFacingLocked ? texActionPressed : texActionNormal;
-            if (actionTex != null)
-            {
-                Rect drawRect = lockButtonRect;
-                if (isFacingLocked)
-                {
-                    // Mechanical press feedback: shrink 4%
-                    float scaleOffset = lockButtonRect.width * 0.02f;
-                    drawRect = new Rect(lockButtonRect.x + scaleOffset, lockButtonRect.y + scaleOffset + 4f, lockButtonRect.width - 2 * scaleOffset, lockButtonRect.height - 2 * scaleOffset);
-                }
-                GUI.DrawTexture(drawRect, actionTex, ScaleMode.ScaleToFit, true);
-            }
-
-            // 2. Left Virtual Joystick (Clean Frosted Ring & Glossy Knob)
-            // If touch is not active, display an elegant resting guide so player knows exactly where to thumb
-            float defaultJoyX = Screen.width * 0.12f;
-            float defaultJoyY = Screen.height * 0.78f;
-            Vector2 displayCenter = isLeftTouchActive ? joystickCenter : new Vector2(defaultJoyX, defaultJoyY);
-            Vector2 displayKnob = isLeftTouchActive ? joystickCurrentPos : displayCenter;
-
-            Color prevGuiColor = GUI.color;
-            if (!isLeftTouchActive)
-            {
-                GUI.color = new Color(1f, 1f, 1f, 0.65f); // clear idle guide
-            }
-            else
-            {
-                GUI.color = Color.white;
-            }
-
-            if (texJoystickBase != null)
-            {
-                Rect baseRect = new Rect(displayCenter.x - joystickRadius, displayCenter.y - joystickRadius, joystickRadius * 2f, joystickRadius * 2f);
-                // Subtle back-shadow for high contrast against bright arena floors
-                GUI.color = new Color(0f, 0f, 0f, isLeftTouchActive ? 0.35f : 0.20f);
-                GUI.DrawTexture(new Rect(baseRect.x + 2f, baseRect.y + 3f, baseRect.width, baseRect.height), texJoystickBase, ScaleMode.ScaleToFit, true);
-
-                GUI.color = isLeftTouchActive ? Color.white : new Color(1f, 1f, 1f, 0.70f);
-                GUI.DrawTexture(baseRect, texJoystickBase, ScaleMode.ScaleToFit, true);
-            }
-
-            if (texJoystickKnob != null)
-            {
-                float knobSize = joystickRadius * 0.65f;
-                Rect knobRect = new Rect(displayKnob.x - knobSize * 0.5f, displayKnob.y - knobSize * 0.5f, knobSize, knobSize);
-                // Subtle back-shadow
-                GUI.color = new Color(0f, 0f, 0f, isLeftTouchActive ? 0.30f : 0.15f);
-                GUI.DrawTexture(new Rect(knobRect.x + 1f, knobRect.y + 2f, knobRect.width, knobRect.height), texJoystickKnob, ScaleMode.ScaleToFit, true);
-
-                GUI.color = isLeftTouchActive ? Color.white : new Color(1f, 1f, 1f, 0.85f);
-                GUI.DrawTexture(knobRect, texJoystickKnob, ScaleMode.ScaleToFit, true);
-            }
-
-            GUI.color = prevGuiColor;
+            // Legacy IMGUI đã được thay thế hoàn toàn bằng hệ thống uGUI Canvas chính quy sắc nét.
         }
     }
 }

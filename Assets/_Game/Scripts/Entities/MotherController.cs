@@ -47,10 +47,16 @@ namespace RongRanChamCham
         private float TurnSpeed => balanceConfig != null ? balanceConfig.motherTurnSpeed : GameConstants.MotherTurnSpeed;
         private float ArenaRadius => balanceConfig != null ? balanceConfig.arenaRadius : GameConstants.ArenaRadius;
 
+        private bool HasAnimator => animator != null && animator.runtimeAnimatorController != null;
+
         private void Awake()
         {
             characterController = GetComponent<CharacterController>();
             animator = GetComponent<Animator>();
+            if (animator != null && animator.runtimeAnimatorController == null)
+            {
+                animator.enabled = false;
+            }
             proceduralAnim = GetComponent<ChibiProceduralAnimator>();
         }
 
@@ -143,7 +149,7 @@ namespace RongRanChamCham
                     proceduralAnim.SetCelebrationMode(isVic, isDef);
                 }
 
-                if (animator != null)
+                if (HasAnimator)
                 {
                     animator.SetFloat("Speed", 0f);
                     animator.SetBool("IsGuarding", false);
@@ -170,7 +176,7 @@ namespace RongRanChamCham
             HandleMovement();
             HandleShoveHunter();
 
-            if (animator != null)
+            if (HasAnimator)
             {
                 Vector2 input = TouchInputManager.Instance != null ? TouchInputManager.Instance.MoveDirection : Vector2.zero;
                 animator.SetFloat("Speed", input.magnitude * NormalSpeed);
